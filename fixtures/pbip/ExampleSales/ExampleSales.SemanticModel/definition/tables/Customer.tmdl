@@ -1,0 +1,32 @@
+table Customer
+	lineageTag: 00000000-0000-4000-8000-000000004000
+
+	column CustomerKey
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 00000000-0000-4000-8000-000000004201
+		summarizeBy: none
+		sourceColumn: CustomerKey
+
+	column 'Customer Name'
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000004202
+		summarizeBy: none
+		sourceColumn: CustomerName
+
+	column Segment
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000004203
+		summarizeBy: none
+		sourceColumn: Segment
+
+	partition Customer = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(ServerName, DatabaseName),
+				    dbo_DimCustomer = Source{[Schema="dbo",Item="DimCustomer"]}[Data]
+				in
+				    dbo_DimCustomer
+

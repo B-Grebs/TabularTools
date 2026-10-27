@@ -1,0 +1,60 @@
+/// Anti-pattern: a date table that is not marked as a date table.
+table Date
+	lineageTag: 00000000-0000-4000-8000-000000002000
+
+	column DateKey
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000002201
+		summarizeBy: none
+		sourceColumn: DateKey
+
+	column Date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: 00000000-0000-4000-8000-000000002202
+		summarizeBy: none
+		sourceColumn: Date
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: 00000000-0000-4000-8000-000000002203
+		summarizeBy: none
+		sourceColumn: Year
+
+	column 'Month Number'
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 00000000-0000-4000-8000-000000002204
+		summarizeBy: none
+		sourceColumn: MonthNumber
+
+	column 'Month Name'
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000002205
+		summarizeBy: none
+		sourceColumn: MonthName
+		sortByColumn: 'Month Number'
+
+	hierarchy Calendar
+		lineageTag: 00000000-0000-4000-8000-000000002301
+
+		level Year
+			lineageTag: 00000000-0000-4000-8000-000000002302
+			column: Year
+
+		level Month
+			lineageTag: 00000000-0000-4000-8000-000000002303
+			column: 'Month Name'
+
+	partition Date = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(ServerName, DatabaseName),
+				    Dates = Value.NativeQuery(Source, "SELECT DateKey, [Date], [Year], MonthNumber, MonthName FROM dbo.vDimDate")
+				in
+				    Dates
+

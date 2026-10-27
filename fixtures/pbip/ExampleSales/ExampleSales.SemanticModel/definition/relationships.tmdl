@@ -1,0 +1,17 @@
+relationship 00000000-0000-4000-8000-000000000201
+	fromColumn: Sales.DateKey
+	toColumn: Date.DateKey
+
+relationship 00000000-0000-4000-8000-000000000202
+	fromColumn: Sales.ProductKey
+	toColumn: Product.ProductKey
+
+relationship 00000000-0000-4000-8000-000000000203
+	crossFilteringBehavior: bothDirections
+	fromColumn: Sales.CustomerKey
+	toColumn: Customer.CustomerKey
+
+relationship 00000000-0000-4000-8000-000000000204
+	fromColumn: Sales.StoreKey
+	toColumn: Store.StoreKey
+
