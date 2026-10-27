@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>Command-line interface for TabularTools: describe, lint, diff and test Power BI semantic models in CI.</Description>
+    <PackageId>TabularTools.Cli</PackageId>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>tabulartools</ToolCommandName>
+    <PackageTags>powerbi;semantic-model;tmdl;pbip;cli</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TabularTools.Core\TabularTools.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="TabularTools.Cli.Tests" />
+  </ItemGroup>
+</Project>
