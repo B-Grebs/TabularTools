@@ -1,11 +1,11 @@
 # ADR-0010: License — MIT vs Apache-2.0
 
-- **Status:** Proposed — **open; decision belongs to the owner**
+- **Status:** Accepted — **MIT** (owner decision, 2026-10-27)
 - **Date:** 2026-10-27
 
 ## Context
 
-The project should be (1) useful now, (2) releasable as open source, and (3) open to a commercial offering later. No `LICENSE` file is committed until this is decided. What matters most here: patent protection, commercial-friendliness, and compatibility with the third-party material we include or depend on.
+The project should be (1) useful now, (2) releasable as open source, and (3) open to a commercial offering later. What matters most here: patent protection, commercial-friendliness, and compatibility with the third-party material we include or depend on.
 
 ### What we include or depend on
 
@@ -41,10 +41,13 @@ The project should be (1) useful now, (2) releasable as open source, and (3) ope
 
 ## Decision
 
-**Open — for the owner.**
+**MIT**, chosen by the owner on 2026-10-27.
 
-If it helps: both licenses fully support goals 1–3. **Apache-2.0** fits goal 3 slightly better because of the explicit patent grant and retaliation clause, at the cost of a longer license and a `NOTICE` file. **MIT** is simplest and matches Tabular Editor 2 and the .NET runtime. Neither choice affects the BPA rules or our dependencies.
+For the record, the comparison above said: both licenses fully support goals 1–3. **Apache-2.0** fits goal 3 slightly better because of the explicit patent grant and retaliation clause, at the cost of a longer license and a `NOTICE` file. **MIT** is simplest and matches Tabular Editor 2 and the .NET runtime. Neither choice affects the BPA rules or our dependencies.
 
-## Consequences (after the decision)
+## Consequences
 
-- Add `LICENSE` (and `NOTICE` for Apache-2.0), `THIRD_PARTY_NOTICES.md`, SPDX headers or a `<PackageLicenseExpression>` in project files, and a DCO/CLA note in `CONTRIBUTING.md`.
+- `LICENSE` (MIT) is committed; project files set `<PackageLicenseExpression>MIT</PackageLicenseExpression>`.
+- `THIRD_PARTY_NOTICES.md` lists bundled or vendored third-party material (Apache-2.0 dependencies' notices, the Microsoft BPA rules when vendored in M2, TE2-derived logic).
+- Contributions use a DCO (`Signed-off-by`). If contributed code ever needs relicensing for a commercial edition, a CLA must be introduced first.
+- Still open: confirm redistribution terms of the Microsoft Analysis Services client libraries before the first release.

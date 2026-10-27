@@ -13,7 +13,7 @@ Facts marked **(verified)** were checked in a throwaway spike on Linux (.NET 10,
 ## Contents
 
 1. [Goals and scope](#1-goals-and-scope)
-2. [Decisions already made, and the open question](#2-decisions-already-made-and-the-open-question)
+2. [Decisions already made](#2-decisions-already-made)
 3. [Landscape and the build-vs-reuse decision](#3-landscape-and-the-build-vs-reuse-decision)
 4. [Components](#4-components)
 5. [Model loading](#5-model-loading)
@@ -56,7 +56,7 @@ ADRs live in [`docs/adr/`](adr/README.md).
 
 ---
 
-## 2. Decisions already made, and the open question
+## 2. Decisions already made
 
 | Topic | Decision | Where it shows up |
 |---|---|---|
@@ -66,7 +66,7 @@ ADRs live in [`docs/adr/`](adr/README.md).
 | Employer separation | **Hard rule:** the repo contains nothing about the owner's employer — no names, tenant or workspace IDs, model names, repo names, or data. All examples and fixtures are synthetic. Hostnames use the reserved `.invalid` TLD; IDs are all-zero GUIDs. | §17 |
 | Lineage | Existing conventions are ad-hoc. Design a clean, explicit config instead of porting them. | §12, [ADR-0007](adr/0007-explicit-lineage-config.md) |
 | Data platform | No Databricks or other platform integration in v1. | §1 |
-| **License (open)** | **MIT vs Apache-2.0 — left to the owner.** Comparison in [ADR-0010](adr/0010-license-mit-vs-apache.md). No `LICENSE` file is committed until that's decided. | ADR-0010 |
+| License | **MIT** (owner decision, 2026-10-27). Comparison in [ADR-0010](adr/0010-license-mit-vs-apache.md). | ADR-0010 |
 
 ---
 
@@ -1044,7 +1044,7 @@ steps:
 
 ## 19. Open questions for review
 
-1. **License: MIT or Apache-2.0?** See [ADR-0010](adr/0010-license-mit-vs-apache.md). The decision is yours.
+1. ~~License~~ — decided: **MIT** ([ADR-0010](adr/0010-license-mit-vs-apache.md)).
 2. **Product and CLI name.** The repo is `TabularTools`; the NuGet ID `TabularTools` is free. The brief's working title includes "Copilot", a Microsoft trademark; I recommend not using it. Proposed: product "TabularTools", CLI `tabulartools`, packages `TabularTools.Cli` / `TabularTools.Mcp`. OK?
 3. **.NET 10 instead of .NET 8** (ADR-0002) — OK?
 4. **Severity defaults** (§10.5). In particular: is a column rename `breaking` by default, and is `summarizeBy` `medium`?

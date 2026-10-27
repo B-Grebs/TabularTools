@@ -39,6 +39,6 @@ TabularTools is an MCP server and a CLI built on the same .NET engine. It gives 
 
 ## License
 
-Not chosen yet. See [ADR-0010](docs/adr/0010-license-mit-vs-apache.md).
+[MIT](LICENSE). See [ADR-0010](docs/adr/0010-license-mit-vs-apache.md) for the reasoning and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled third-party material.
 
 *Power BI is a trademark of Microsoft. This project is not affiliated with Microsoft or Tabular Editor ApS.*
