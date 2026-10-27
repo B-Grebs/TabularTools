@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>MCP server (stdio) exposing TabularTools semantic-model tools to AI agents.</Description>
+    <PackageId>TabularTools.Mcp</PackageId>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>tabulartools-mcp</ToolCommandName>
+    <PackageTags>powerbi;semantic-model;tmdl;pbip;mcp</PackageTags>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TabularTools.Core\TabularTools.Core.csproj" />
+  </ItemGroup>
+</Project>
