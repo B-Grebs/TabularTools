@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TabularTools.Cli/TabularTools.Cli.csproj" />
+    <Project Path="src/TabularTools.Core/TabularTools.Core.csproj" />
+    <Project Path="src/TabularTools.Mcp/TabularTools.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TabularTools.Cli.Tests/TabularTools.Cli.Tests.csproj" />
+    <Project Path="tests/TabularTools.Core.Tests/TabularTools.Core.Tests.csproj" />
+    <Project Path="tests/TabularTools.Mcp.Tests/TabularTools.Mcp.Tests.csproj" />
+  </Folder>
+</Solution>
