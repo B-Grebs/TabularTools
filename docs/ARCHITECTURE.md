@@ -1,6 +1,6 @@
 # TabularTools — Architecture
 
-> **Status:** M0 draft for review. No implementation code exists yet.
+> **Status:** Reviewed after M0 (license: MIT; other open questions taken at the proposed defaults). M1 is implemented; see `docs/milestones/`.
 > **Working name:** `TabularTools` (the repo name). See [§19 Open questions](#19-open-questions-for-review) on naming.
 > **Last updated:** 2026-10-27
 
@@ -101,12 +101,12 @@ Why:
 TabularTools.sln
 src/
   TabularTools.Core/        Offline engine. No MCP, CLI, network or auth concerns.
-  TabularTools.Live/        XMLA/ADOMD query execution + Entra ID token providers.
+  TabularTools.Live/        XMLA/ADOMD query execution + Entra ID token providers. (Added in M4.)
   TabularTools.Mcp/         MCP stdio host (thin): tool/resource/prompt definitions → Core/Live.
   TabularTools.Cli/         CLI host (thin): commands → Core/Live; ADO PR comment publisher.
 tests/
   TabularTools.Core.Tests/  Unit + fixture tests (Linux and Windows).
-  TabularTools.Live.Tests/  Mock-based tests; live tests opt-in via env var, skipped by default.
+  TabularTools.Live.Tests/  Mock-based tests; live tests opt-in via env var, skipped by default. (M4.)
   TabularTools.Mcp.Tests/   In-process MCP client ↔ server round trips.
   TabularTools.Cli.Tests/   Command, exit-code and output-format tests.
 fixtures/                   Synthetic PBIP models, diff snapshots, lineage repos (§17).

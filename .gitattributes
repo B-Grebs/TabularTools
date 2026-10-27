@@ -1,0 +1,15 @@
+# Keep fixture and source line endings stable across Windows and Linux checkouts,
+# so content hashes and golden files match on both CI runners.
+* text=auto eol=lf
+*.tmdl text eol=lf
+*.cs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.nupkg binary

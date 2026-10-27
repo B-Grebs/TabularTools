@@ -10,7 +10,78 @@ TabularTools is an MCP server and a CLI built on the same .NET engine. It gives 
 - **Run measure regression tests** against a live model without deploying the PR version.
 - **Resolve lineage** across repos: report → semantic model → source tables and views.
 
-> **Status: M0 — design only.** There is no code yet. Start with the [architecture document](docs/ARCHITECTURE.md) and the [decision records](docs/adr/README.md).
+> **Status: M1 — skeleton.** Models can be opened and described from both the MCP server and the CLI. Lint, diff, measure tests and lineage come in M2–M5. The design is in the [architecture document](docs/ARCHITECTURE.md) and the [decision records](docs/adr/README.md).
+
+## Getting started
+
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download). Packages aren't published to NuGet yet, so build them locally:
+
+```bash
+dotnet pack -c Release -o artifacts
+```
+
+```bash
+dotnet tool install -g TabularTools.Cli --add-source artifacts
+```
+
+```bash
+dotnet tool install -g TabularTools.Mcp --add-source artifacts
+```
+
+### CLI
+
+```bash
+tabulartools describe path/to/Project.pbip --detail summary
+```
+
+`describe` accepts a `.pbip` file, a `*.SemanticModel` folder, a TMDL `definition` folder, or a `model.bim` file (default: the current folder).
+
+| Option | Meaning |
+|---|---|
+| `--detail summary\|objects\|full` | Counts and tables / objects and properties / plus DAX and M expressions and RLS filters |
+| `--tables`, `--types`, `--name`, `--exclude-hidden` | Filter by table, object type, name glob, visibility |
+| `--format text\|markdown\|json` | Default: text in a terminal, JSON when output is redirected |
+| `--out <file>` | Write to a file |
+
+Exit codes: `0` success, `1` blocking findings (from M2), `2` usage error or path that isn't a model, `3` invalid TMDL/TMSL (reported with file and line), `4` environment error.
+
+### MCP server
+
+Register the server in your MCP client. For Claude Code:
+
+```bash
+claude mcp add tabulartools -- tabulartools-mcp --root /path/to/your/repo
+```
+
+Generic `mcp.json` / Claude Desktop entry:
+
+```json
+{
+  "mcpServers": {
+    "tabulartools": { "command": "tabulartools-mcp", "args": ["--root", "/path/to/your/repo"] }
+  }
+}
+```
+
+| Tool | What it does |
+|---|---|
+| `ping` | Server and TOM versions, roots, whether writes are enabled |
+| `open_model` | Load a model; returns a `modelId` handle and a summary. Invalid TMDL is reported with file and line |
+| `describe_model` | List tables, columns, measures, relationships, roles, partitions and more, with filters, three detail levels and paging |
+
+The server is read-only. `--root` (repeatable) sets the folder relative paths resolve against. `--allow-writes` and `--disable-live` are accepted for later milestones and change nothing yet.
+
+### Build and test
+
+```bash
+dotnet build
+```
+
+```bash
+dotnet test
+```
+
+Tests run on Linux and Windows in CI against the synthetic fixture in `fixtures/pbip/ExampleSales`.
 
 ## Design documents
 
@@ -24,8 +95,8 @@ TabularTools is an MCP server and a CLI built on the same .NET engine. It gives 
 
 | Milestone | Scope | Status |
 |---|---|---|
-| M0 | Architecture document + ADRs | **In review** |
-| M1 | Skeleton: solution, MCP + CLI hosts, `open_model`/`describe_model`, Linux + Windows CI | Not started |
+| M0 | Architecture document + ADRs | Done |
+| M1 | Skeleton: solution, MCP + CLI hosts, `open_model`/`describe_model`, Linux + Windows CI | **Done** — [notes](docs/milestones/M1.md) |
 | M2 | Lint engine (BPA JSON rules + built-in rules) | Not started |
 | M3 | Semantic diff + PR-comment Markdown + sample ADO pipeline | Not started |
 | M4 | Measure regression tests + `run_dax` (live, with an offline mock) | Not started |
