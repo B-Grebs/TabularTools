@@ -50,16 +50,16 @@ public sealed record ModelCounts(
 
 public sealed record ModelInfo(
     string Name,
-    string? Handle,
     ModelSourceKind SourceKind,
     ModelFormat Format,
     string InputPath,
     string DefinitionPath,
     int CompatibilityLevel,
-    string? Culture,
-    ModelCounts Counts);
+    ModelCounts Counts,
+    string? Culture = null,
+    string? Handle = null);
 
-public sealed record TableSummary(string Name, string Kind, bool IsHidden, int Columns, int Measures, int Partitions, string? Description);
+public sealed record TableSummary(string Name, string Kind, bool IsHidden, int Columns, int Measures, int Partitions, string? Description = null);
 
 /// <summary>One model object. <see cref="Properties"/> carries type-specific fields.</summary>
 public sealed record DescribedObject

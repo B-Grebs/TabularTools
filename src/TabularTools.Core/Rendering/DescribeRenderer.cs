@@ -67,15 +67,17 @@ public static class DescribeRenderer
         var c = m.Counts;
         sb.AppendLine($"{m.Name}  (compatibility level {m.CompatibilityLevel}, {m.Format.ToString().ToUpperInvariant()})");
         sb.AppendLine($"  {m.DefinitionPath}");
-        sb.AppendLine($"  {c.Tables} tables, {c.Columns} columns, {c.Measures} measures, {c.Relationships} relationships, {c.Roles} roles, " +
-                      $"{c.CalculationGroups} calculation groups, {c.Partitions} partitions, {c.Expressions} expressions, {c.Functions} functions");
+        sb.AppendLine("  " + string.Join(", ",
+            Plural(c.Tables, "table"), Plural(c.Columns, "column"), Plural(c.Measures, "measure"), Plural(c.Relationships, "relationship"),
+            Plural(c.Roles, "role"), Plural(c.CalculationGroups, "calculation group"), Plural(c.Partitions, "partition"),
+            Plural(c.Expressions, "expression"), Plural(c.Functions, "function")));
 
         if (result.Tables is { } tables)
         {
             sb.AppendLine();
             var width = tables.Count == 0 ? 5 : Math.Max(5, tables.Max(t => t.Name.Length));
             foreach (var t in tables)
-                sb.AppendLine($"  {t.Name.PadRight(width)}  {t.Kind,-16} {t.Columns,3} cols {t.Measures,3} measures{(t.IsHidden ? "  hidden" : "")}");
+                sb.AppendLine($"  {t.Name.PadRight(width)}  {t.Kind,-16} {Plural(t.Columns, "column"),-11} {Plural(t.Measures, "measure")}{(t.IsHidden ? "  hidden" : "")}");
         }
 
         if (result.Objects is { } objects)
@@ -128,8 +130,8 @@ public static class DescribeRenderer
     private static string Details(DescribedObject o) => o.Type switch
     {
         "column" => Join(Prop(o, "kind") is "data" or "" ? null : Prop(o, "kind"), Prop(o, "isKey") == "True" ? "key" : null,
-            Prop(o, "sortByColumn") is { Length: > 0 } sb ? $"sort by {sb}" : null, o.DisplayFolder),
-        "measure" => o.DisplayFolder ?? "",
+            Prop(o, "sortByColumn") is { Length: > 0 } sb ? $"sort by {sb}" : null, Folder(o)),
+        "measure" => Folder(o),
         "relationship" => Prop(o, "isActive") == "False" ? "inactive" : "",
         "hierarchy" => Prop(o, "levels"),
         "calculationItem" => $"ordinal {Prop(o, "ordinal")}",
@@ -148,6 +150,10 @@ public static class DescribeRenderer
             _ => value.ToString() ?? "",
         };
     }
+
+    private static string Folder(DescribedObject o) => o.DisplayFolder is { Length: > 0 } f ? $"folder: {f}" : "";
+
+    private static string Plural(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
 
     private static string Join(params string?[] parts) => string.Join(", ", parts.Where(p => !string.IsNullOrEmpty(p)));
 

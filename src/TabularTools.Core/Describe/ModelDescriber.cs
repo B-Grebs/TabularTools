@@ -25,8 +25,8 @@ public static class ModelDescriber
             s.AllPartitions.Count(),
             s.Expressions.Count,
             s.Functions.Count);
-        return new ModelInfo(s.Name, handle, model.Source.Kind, model.Source.Format, model.Source.InputPath,
-            model.Source.DefinitionPath, s.CompatibilityLevel, s.Culture, counts);
+        return new ModelInfo(s.Name, model.Source.Kind, model.Source.Format, model.Source.InputPath,
+            model.Source.DefinitionPath, s.CompatibilityLevel, counts, s.Culture, handle);
     }
 
     public static DescribeResult Describe(LoadedModel model, DescribeRequest request, string? handle = null)
