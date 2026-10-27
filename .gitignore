@@ -1,0 +1,37 @@
+# Build output
+bin/
+obj/
+artifacts/
+*.nupkg
+*.snupkg
+
+# IDEs
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.user
+*.suo
+
+# Test output
+TestResults/
+coverage/
+*.received.*
+
+# TabularTools local state (never commit)
+tabulartools.local.yaml
+.tabulartools/
+
+# Secrets and environment
+.env
+.env.*
+*.pfx
+*.pem
+
+# Power BI Desktop local files inside PBIP projects
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+
+# OS
+.DS_Store
+Thumbs.db
