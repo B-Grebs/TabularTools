@@ -5,6 +5,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AnalysisServices" />
+    <PackageReference Include="System.Linq.Dynamic.Core" />
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\rules\microsoft-bpa\BPARules.json" LogicalName="TabularTools.Rules.microsoft-bpa.json" Link="Rules\microsoft-bpa.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="TabularTools.Core.Tests" />
