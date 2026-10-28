@@ -1,6 +1,6 @@
 # TabularTools — Architecture
 
-> **Status:** Reviewed after M0 (license: MIT; other open questions taken at the proposed defaults). M1 is implemented; see `docs/milestones/`.
+> **Status:** Reviewed after M0 (license: MIT; other open questions taken at the proposed defaults). M1 and M2 are implemented; see `docs/milestones/`.
 > **Working name:** `TabularTools` (the repo name). See [§19 Open questions](#19-open-questions-for-review) on naming.
 > **Last updated:** 2026-10-27
 
@@ -505,7 +505,7 @@ Default thresholds: `lint --fail-on error`, `test run` fails on `fail` or `error
 1. **Built-in rules** (C#, IDs `TT0xx`). These are checks that BPA expressions can't express well, or that need the dependency graph or relationship graph:
    - `TT001` broken DAX reference (an expression references a missing object) — error;
    - `TT002` ambiguous filter paths caused by bidirectional relationships — warning;
-   - `TT003` RLS filter references a column outside its table, or an unknown column — error;
+   - `TT003` RLS filter uses an unqualified column that belongs to another table — error (unknown columns are TT001);
    - `TT004` hard-coded server or database literal in a partition instead of an M parameter — info;
    - `TT005` measure name collides with a column name — warning.
 2. **Vendored Microsoft BPA rules** — `rules/microsoft-bpa/BPARules.json` from `microsoft/Analysis-Services`, **MIT, © 2016 Microsoft**, kept with its license notice in `THIRD_PARTY_NOTICES.md`. It has 71 rules (Performance 24, Formatting 15, DAX 12, Maintenance 9, Error Prevention 8, Naming 3). Updated deliberately by a script that records the upstream commit.
