@@ -8,11 +8,11 @@ public class McpServerTests(McpServerFixture server) : IClassFixture<McpServerFi
     private static readonly CancellationToken Ct = TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task Lists_the_m1_tools_all_read_only_with_descriptions_and_output_schemas()
+    public async Task Lists_the_tools_all_read_only_with_descriptions_and_output_schemas()
     {
         var tools = await server.Client.ListToolsAsync(cancellationToken: Ct);
 
-        Assert.Equal(["describe_model", "open_model", "ping"], tools.Select(t => t.Name).Order());
+        Assert.Equal(["describe_model", "get_dependencies", "lint_model", "open_model", "ping"], tools.Select(t => t.Name).Order());
         Assert.All(tools, t =>
         {
             var tool = t.ProtocolTool;
@@ -109,6 +109,7 @@ public class McpServerTests(McpServerFixture server) : IClassFixture<McpServerFi
     [InlineData("describe_model", "summary")]
     [InlineData("describe_model", "objects")]
     [InlineData("describe_model", "full")]
+    [InlineData("lint_model", null)]
     public async Task Structured_content_has_every_property_its_output_schema_requires(string tool, string? detail)
     {
         var tools = await server.Client.ListToolsAsync(cancellationToken: Ct);

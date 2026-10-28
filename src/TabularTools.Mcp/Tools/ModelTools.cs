@@ -13,7 +13,7 @@ namespace TabularTools.Mcp.Tools;
 [McpServerToolType]
 public sealed class ModelTools(ModelWorkspace workspace, ServerOptions options)
 {
-    private const string ModelParameterDescription =
+    internal const string ModelParameterDescription =
         "Model to use: a .pbip file, a *.SemanticModel folder, a TMDL definition folder, a model.bim file, or a modelId handle from open_model. " +
         "Relative paths resolve against the server root. Omit when the root contains exactly one model.";
 

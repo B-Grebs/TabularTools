@@ -9,16 +9,7 @@ internal static class DescribeCommand
 {
     public static Command Create(CliContext context)
     {
-        var model = new Argument<string?>("model")
-        {
-            Description = "A .pbip file, *.SemanticModel folder, TMDL definition folder or model.bim file. Default: the current folder.",
-            Arity = ArgumentArity.ZeroOrOne,
-        };
-        model.Validators.Add(result =>
-        {
-            if (result.Tokens is [{ Value: var value }] && value.StartsWith('-'))
-                result.AddError($"Unknown option: {value}");
-        });
+        var model = ModelArgument.Create();
         var detail = new Option<DetailLevel>("--detail", "-d")
         {
             Description = "summary = counts and tables; objects = objects without expressions; full = with DAX/M expressions and RLS filters.",
@@ -41,8 +32,7 @@ internal static class DescribeCommand
 
         command.SetAction(parse => CommandRunner.Run(context, () =>
         {
-            var path = parse.GetValue(model) ?? ".";
-            var loaded = ModelLoader.Load(Path.GetFullPath(Path.Combine(context.WorkingDirectory, path)));
+            var loaded = ModelArgument.Load(parse, model, context);
             var request = new DescribeRequest
             {
                 Detail = parse.GetValue(detail),

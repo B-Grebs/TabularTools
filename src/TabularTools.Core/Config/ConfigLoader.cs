@@ -30,6 +30,14 @@ public static class ConfigLoader
         return null;
     }
 
+    /// <summary>The config that applies to a model: an explicit path if given, otherwise the nearest tabulartools.yaml above it.</summary>
+    public static TabularToolsConfig? ForModel(Loading.ResolvedModelSource source, string? explicitPath = null)
+    {
+        if (!string.IsNullOrWhiteSpace(explicitPath)) return Load(explicitPath);
+        var start = source.SemanticModelFolder ?? (File.Exists(source.DefinitionPath) ? Path.GetDirectoryName(source.DefinitionPath)! : source.DefinitionPath);
+        return Discover(start);
+    }
+
     public static TabularToolsConfig Load(string path)
     {
         var full = Path.GetFullPath(path);

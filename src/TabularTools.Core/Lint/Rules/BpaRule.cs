@@ -81,6 +81,22 @@ public sealed class BpaRule : ILintRule
         return new RuleEvaluation(hits, null, errors, firstError);
     }
 
+    /// <summary>Compiles the rule for each of its scopes without a model. Returns null when it's fine, otherwise the problem.</summary>
+    public string? Check()
+    {
+        if (string.IsNullOrWhiteSpace(_definition.Expression)) return "The rule has no expression.";
+        if (Info.Scope.Count == 0) return "The rule has no scope.";
+        var unknown = Info.Scope.Where(s => Scopes.TypeOf(s) is null).ToList();
+        if (unknown.Count > 0) return $"Unsupported scope: {string.Join(", ", unknown)}.";
+        var translated = DialectAdapter.Translate(_definition.Expression);
+        foreach (var type in Info.Scope.Select(s => Scopes.TypeOf(s)!).Distinct())
+        {
+            var compiled = Compiled.GetOrAdd((translated, type), key => Compile(key.Expression, key.Type));
+            if (compiled.Error is not null) return $"Expression not supported for {type.Name[2..]}: {compiled.Error}";
+        }
+        return null;
+    }
+
     private static Result<Delegate> Compile(string expression, Type type)
     {
         try
@@ -107,6 +123,28 @@ public sealed class BpaRule : ILintRule
 /// <summary>Maps BPA scope names to the objects they cover.</summary>
 internal static class Scopes
 {
+    public static Type? TypeOf(string scope) => scope switch
+    {
+        "Model" => typeof(TeModel),
+        "Table" or "CalculatedTable" or "CalculationGroup" => typeof(TeTable),
+        "DataColumn" or "CalculatedColumn" or "CalculatedTableColumn" => typeof(TeColumn),
+        "Measure" => typeof(TeMeasure),
+        "KPI" => typeof(TeKpi),
+        "Hierarchy" => typeof(TeHierarchy),
+        "Level" => typeof(TeLevel),
+        "Partition" => typeof(TePartition),
+        "Relationship" => typeof(TeRelationship),
+        "Perspective" => typeof(TePerspective),
+        "Culture" => typeof(TeCulture),
+        "ModelRole" => typeof(TeModelRole),
+        "TablePermission" => typeof(TeTablePermission),
+        "CalculationItem" => typeof(TeCalculationItem),
+        "NamedExpression" => typeof(TeNamedExpression),
+        "ProviderDataSource" or "StructuredDataSource" => typeof(TeDataSource),
+        "Function" => typeof(TeFunction),
+        _ => null,
+    };
+
     public static IEnumerable<TeObject>? Objects(TeModel m, string scope) => scope switch
     {
         "Model" => [m],

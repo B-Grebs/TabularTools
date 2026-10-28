@@ -98,4 +98,9 @@ public sealed record LintResult
     /// <summary>True when any violation is at or above <see cref="FailOn"/>.</summary>
     public required bool Blocking { get; init; }
     public string? ConfigPath { get; init; }
+    /// <summary>True when <see cref="Violations"/> was cut to a limit; <see cref="Summary"/> still counts everything.</summary>
+    public bool Truncated { get; init; }
 }
+
+/// <summary>Result of checking a rules file without a model.</summary>
+public sealed record RuleCheck(string RuleId, string Name, IReadOnlyList<string> Scope, bool Ok, string? Problem = null);
