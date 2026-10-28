@@ -13,6 +13,8 @@ public static class CliApp
         root.Subcommands.Add(LintCommand.Create(context));
         root.Subcommands.Add(DepsCommand.Create(context));
         root.Subcommands.Add(DiffCommand.Create(context));
+        root.Subcommands.Add(DaxCommand.Create(context));
+        root.Subcommands.Add(TestCommand.Create(context));
         root.Subcommands.Add(ReviewCommand.Create(context));
         root.Subcommands.Add(AdoCommand.Create(context));
         root.Subcommands.Add(RulesCommand.Create(context));

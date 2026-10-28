@@ -21,6 +21,16 @@ internal static class CommandRunner
             context.Error.WriteLine("error: " + ex.Message);
             return ExitCodes.EnvironmentError;
         }
+        catch (TabularTools.Core.Queries.LiveException ex)
+        {
+            context.Error.WriteLine("error: " + ex.Message);
+            return ExitCodes.EnvironmentError;
+        }
+        catch (TabularTools.Core.Queries.DaxQueryException ex)
+        {
+            context.Error.WriteLine("error: the query failed: " + ex.Message);
+            return ExitCodes.UsageError;
+        }
         catch (ArgumentException ex)
         {
             context.Error.WriteLine("error: " + ex.Message);

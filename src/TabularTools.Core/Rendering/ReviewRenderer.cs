@@ -17,7 +17,8 @@ public static class ReviewRenderer
             var lint = m.Lint is { Summary: var s } ? $", lint {s.New ?? s.Total} new" : "";
             return $"'{m.Diff.Name}' {DiffRenderer.Counts(m.Diff.Summary, plain: true)}{lint}";
         });
-        return $"{r.Base.Label} → {r.Head.Label}: {string.Join("; ", parts)} — {(r.Blocking ? "blocking" : "not blocking")}.";
+        var tests = r.Tests is { } t ? $"; measure tests {TestRenderer.Counts(t.Summary)}" : "";
+        return $"{r.Base.Label} → {r.Head.Label}: {string.Join("; ", parts)}{tests} — {(r.Blocking ? "blocking" : "not blocking")}.";
     }
 
     public static string Text(ReviewResult r)
@@ -37,6 +38,12 @@ public static class ReviewRenderer
                 sb.Append(LintRenderer.Text(lint with { Violations = lint.Violations.Where(v => v.IsNew != false).ToList() }));
             }
         }
+        if (r.Tests is { } tests)
+        {
+            sb.AppendLine();
+            sb.Append(TestRenderer.Text(tests));
+        }
+        if (r.TestsSkipped is { } skipped) sb.AppendLine().AppendLine("Measure tests skipped: " + skipped);
         return sb.ToString();
     }
 
@@ -55,6 +62,8 @@ public static class ReviewRenderer
             sb.Append(DiffRenderer.ModelMarkdown(m.Diff, r.Base, r.Head));
             if (m.Lint is { } lint) AppendLint(sb, lint);
         }
+        if (r.Tests is { } tests) sb.Append(TestRenderer.Markdown(tests, marker: null, headingLevel: 4)).AppendLine();
+        if (r.TestsSkipped is { } skipped) sb.AppendLine($"> ℹ️ Measure tests skipped: {DiffRenderer.Escape(skipped)}");
         if (r.Diagnostics is { Count: > 0 } diagnostics)
             foreach (var d in diagnostics) sb.AppendLine($"> ⚠️ {DiffRenderer.Escape(d.Message)}");
         sb.AppendLine();

@@ -47,6 +47,36 @@ internal static class ToolResults
         }
     }
 
+    /// <summary>Async variant of <see cref="Run"/>; also turns live connection and query failures into tool errors.</summary>
+    public static async Task<CallToolResult> RunAsync(Func<Task<CallToolResult>> body)
+    {
+        try
+        {
+            return await body().ConfigureAwait(false);
+        }
+        catch (ModelLoadException ex)
+        {
+            var lines = ex.Diagnostics.Select(d => "- " + d);
+            return Error($"Could not load the model:{Environment.NewLine}{string.Join(Environment.NewLine, lines)}");
+        }
+        catch (ArgumentException ex)
+        {
+            return Error(ex.Message);
+        }
+        catch (TabularTools.Core.Git.GitException ex)
+        {
+            return Error("Git: " + ex.Message);
+        }
+        catch (TabularTools.Core.Queries.LiveException ex)
+        {
+            return Error("Live model: " + ex.Message);
+        }
+        catch (TabularTools.Core.Queries.DaxQueryException ex)
+        {
+            return Error("The query failed: " + ex.Message);
+        }
+    }
+
     public static CallToolResult Error(string message) => new()
     {
         IsError = true,

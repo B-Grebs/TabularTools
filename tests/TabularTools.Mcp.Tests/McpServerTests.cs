@@ -8,18 +8,22 @@ public class McpServerTests(McpServerFixture server) : IClassFixture<McpServerFi
     private static readonly CancellationToken Ct = TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task Lists_the_tools_all_read_only_with_descriptions_and_output_schemas()
+    public async Task Lists_the_tools_with_annotations_descriptions_and_output_schemas()
     {
         var tools = await server.Client.ListToolsAsync(cancellationToken: Ct);
 
-        Assert.Equal(["describe_model", "diff_model", "get_dependencies", "lint_model", "open_model", "ping"], tools.Select(t => t.Name).Order());
+        Assert.Equal(["describe_model", "diff_model", "generate_measure_tests", "get_dependencies", "lint_model", "open_model", "ping", "run_dax", "run_measure_tests"],
+            tools.Select(t => t.Name).Order());
+        // Only generate_measure_tests can write (and only with --allow-writes); the three live tools talk to a service.
+        string[] writes = ["generate_measure_tests"];
+        string[] openWorld = ["generate_measure_tests", "run_dax", "run_measure_tests"];
         Assert.All(tools, t =>
         {
             var tool = t.ProtocolTool;
             Assert.False(string.IsNullOrWhiteSpace(tool.Description));
-            Assert.True(tool.Annotations?.ReadOnlyHint);
+            Assert.Equal(!writes.Contains(tool.Name), tool.Annotations?.ReadOnlyHint);
             Assert.False(tool.Annotations?.DestructiveHint);
-            Assert.False(tool.Annotations?.OpenWorldHint);
+            Assert.Equal(openWorld.Contains(tool.Name), tool.Annotations?.OpenWorldHint);
             Assert.NotNull(tool.OutputSchema);
         });
     }

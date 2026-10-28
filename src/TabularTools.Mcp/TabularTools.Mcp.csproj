@@ -13,5 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TabularTools.Core\TabularTools.Core.csproj" />
+    <ProjectReference Include="..\TabularTools.Live\TabularTools.Live.csproj" />
   </ItemGroup>
 </Project>

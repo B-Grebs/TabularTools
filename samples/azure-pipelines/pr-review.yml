@@ -1,8 +1,9 @@
 # Review Power BI semantic model changes on every pull request (Azure Repos).
 #
-# What it does: semantic diff of every *.SemanticModel folder the PR changes, plus lint violations the PR
-# introduces, posted as one PR comment that is updated on every push. The run fails when the review is blocking
-# (new lint errors by default; diff changes too if tabulartools.yaml sets diff.failOn).
+# What it does: semantic diff of every *.SemanticModel folder the PR changes, lint violations the PR introduces,
+# and (optionally) measure regression tests against a dev model, posted as one PR comment that is updated on every
+# push. The run fails when the review is blocking (new lint errors and failing measure tests by default; diff changes
+# too if tabulartools.yaml sets diff.failOn).
 #
 # Setup (once per repository):
 #   1. Create a pipeline from this file.
@@ -12,6 +13,10 @@
 #      so the pipeline can post the comment.
 #   4. Until TabularTools.Cli is published to nuget.org, push the package to an Azure Artifacts feed and set
 #      TABULARTOOLS_FEED to the feed's NuGet v3 URL (…/_packaging/<feed>/nuget/v3/index.json).
+#   5. Optional, for measure tests: list test files under tests.files in tabulartools.yaml with a profile that uses
+#      auth: azureCli, create an Azure Resource Manager service connection with workload identity federation whose
+#      identity has Build permission on the dev model (and is allowed to use XMLA endpoints in the tenant settings),
+#      and set SERVICE_CONNECTION to its name. Nothing is deployed: tests use query-scoped overrides, read-only.
 
 trigger: none
 pr:
@@ -24,6 +29,7 @@ pool:
 variables:
   TABULARTOOLS_VERSION: 0.1.0
   TABULARTOOLS_FEED: ''
+  SERVICE_CONNECTION: '' # Azure service connection for live measure tests; empty = tests are skipped
   REPORT_DIR: $(Build.ArtifactStagingDirectory)/tabulartools
 
 steps:
@@ -50,16 +56,37 @@ steps:
     displayName: Install TabularTools CLI
 
   - pwsh: |
+      $extra = @('--no-tests')
       New-Item -ItemType Directory -Force -Path '$(REPORT_DIR)' | Out-Null
       $target = '$(System.PullRequest.TargetBranch)' -replace '^refs/heads/', ''
       # HEAD is the PR's merge commit; the diff compares it with merge-base(origin/<target>, HEAD).
-      tabulartools review --base "origin/$target" --head HEAD --format markdown --out '$(REPORT_DIR)/review.md'
+      tabulartools review --base "origin/$target" --head HEAD --format markdown --out '$(REPORT_DIR)/review.md' --json-out '$(REPORT_DIR)/review.json' @extra
       $code = $LASTEXITCODE
-      tabulartools review --base "origin/$target" --head HEAD --format json --out '$(REPORT_DIR)/review.json' | Out-Null
-      # 0 = nothing blocking, 1 = blocking findings (fail the run after commenting), 2-4 = usage, model or git errors.
+      # 0 = nothing blocking, 1 = blocking findings (fail the run after commenting), 2-4 = usage, model, git or auth errors.
       if ($code -gt 1) { exit $code }
       Write-Host "##vso[task.setvariable variable=REVIEW_EXIT]$code"
     displayName: Review semantic model changes
+    condition: and(succeeded(), eq(variables['SERVICE_CONNECTION'], ''))
+
+  # With a service connection the same review also runs the measure tests: the Azure CLI task signs in with
+  # workload identity federation, and profiles with auth: azureCli use that sign-in. No secrets are stored.
+  - task: AzureCLI@2
+    displayName: Review semantic model changes (with measure tests)
+    condition: and(succeeded(), ne(variables['SERVICE_CONNECTION'], ''))
+    inputs:
+      azureSubscription: $(SERVICE_CONNECTION)
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        $extra = @()
+        New-Item -ItemType Directory -Force -Path '$(REPORT_DIR)' | Out-Null
+        $target = '$(System.PullRequest.TargetBranch)' -replace '^refs/heads/', ''
+        # HEAD is the PR's merge commit; the diff compares it with merge-base(origin/<target>, HEAD).
+        tabulartools review --base "origin/$target" --head HEAD --format markdown --out '$(REPORT_DIR)/review.md' --json-out '$(REPORT_DIR)/review.json' @extra
+        $code = $LASTEXITCODE
+        # 0 = nothing blocking, 1 = blocking findings (fail the run after commenting), 2-4 = usage, model, git or auth errors.
+        if ($code -gt 1) { exit $code }
+        Write-Host "##vso[task.setvariable variable=REVIEW_EXIT]$code"
 
   - task: PublishPipelineArtifact@1
     displayName: Publish review report

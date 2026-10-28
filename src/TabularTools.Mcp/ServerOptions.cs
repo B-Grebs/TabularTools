@@ -8,7 +8,7 @@ public sealed record ServerOptions
     /// <summary>Register tools that write files. Off by default (read-only server).</summary>
     public bool AllowWrites { get; init; }
 
-    /// <summary>Hide tools that talk to a live semantic model.</summary>
+    /// <summary>Hide run_dax, and limit measure tests to recordings: nothing queries a live model.</summary>
     public bool DisableLive { get; init; }
 
     public bool ShowHelp { get; init; }
@@ -23,7 +23,7 @@ public sealed record ServerOptions
         Options:
           --root <dir>      Folder that relative model paths resolve against (repeatable; default: current folder).
           --allow-writes    Register tools that write files (off by default: read-only).
-          --disable-live    Hide tools that query a live semantic model.
+          --disable-live    Never query a live model: hide run_dax; measure tests only replay recordings.
           --version         Print the version and exit.
           -h, --help        Show this help and exit.
         """;

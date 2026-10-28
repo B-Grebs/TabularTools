@@ -3,8 +3,11 @@ using ModelContextProtocol.Client;
 namespace TabularTools.Mcp.Tests;
 
 /// <summary>Starts the real MCP server as a child process over stdio, rooted at the ExampleSales fixture.</summary>
-public sealed class McpServerFixture : IAsyncLifetime
+public class McpServerFixture : IAsyncLifetime
 {
+    /// <summary>Server arguments after the dll path.</summary>
+    protected virtual IReadOnlyList<string> Arguments => ["--root", TestPaths.ExampleSalesFolder];
+
     public McpClient Client { get; private set; } = null!;
 
     public static string ServerDll
@@ -26,13 +29,36 @@ public sealed class McpServerFixture : IAsyncLifetime
         {
             Name = "tabulartools",
             Command = "dotnet",
-            Arguments = [ServerDll, "--root", TestPaths.ExampleSalesFolder],
+            Arguments = [ServerDll, .. Arguments],
         });
         Client = await McpClient.CreateAsync(transport);
     }
 
-    public async ValueTask DisposeAsync()
+    public virtual async ValueTask DisposeAsync()
     {
         if (Client is not null) await Client.DisposeAsync();
+        GC.SuppressFinalize(this);
     }
+}
+
+/// <summary>A server with --allow-writes, rooted at a temporary copy of the ExampleSales fixture.</summary>
+public sealed class WritableServerFixture : McpServerFixture
+{
+    private readonly TempDir _root = new(TestPaths.ExampleSalesFolder);
+
+    public string Root => _root.Path;
+
+    protected override IReadOnlyList<string> Arguments => ["--root", Root, "--allow-writes"];
+
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+        _root.Dispose();
+    }
+}
+
+/// <summary>A server with --disable-live.</summary>
+public sealed class NoLiveServerFixture : McpServerFixture
+{
+    protected override IReadOnlyList<string> Arguments => ["--root", TestPaths.ExampleSalesFolder, "--disable-live"];
 }

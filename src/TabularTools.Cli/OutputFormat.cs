@@ -51,4 +51,13 @@ public sealed record CliContext(TextWriter Out, TextWriter Error, bool OutputIsT
 
     /// <summary>Creates the PR commenter; tests substitute a fake.</summary>
     public Func<Ado.AdoContext, Ado.IPullRequestCommenter>? CommenterFactory { get; init; }
+
+    /// <summary>Creates live query executors; tests substitute a fake. Default: ADOMD.NET with Entra ID tokens.</summary>
+    public TabularTools.Core.Queries.IDaxExecutorFactory? ExecutorFactory { get; init; }
+
+    /// <summary>Current time, for snapshot and recording timestamps (fixed in tests).</summary>
+    public Func<DateTimeOffset> Clock { get; init; } = () => DateTimeOffset.UtcNow;
+
+    public TabularTools.Core.Queries.IDaxExecutorFactory Executors =>
+        ExecutorFactory ?? new TabularTools.Live.DaxExecutorFactory(Environment, interactiveAllowed: OutputIsTerminal);
 }
