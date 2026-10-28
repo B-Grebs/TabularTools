@@ -1,0 +1,150 @@
+# Recorded DAX query results, replayed by TabularTools instead of querying a live model.
+# Entries match on the query text (whitespace at line ends ignored) and role.
+schemaVersion: 1
+target:
+  endpoint: "powerbi://api.powerbi.com/v1.0/myorg/Example%20Sales%20Dev"
+  database: "ExampleSales"
+recordings:
+  - label: "sales-by-year/base"
+    query: |-
+      DEFINE
+      	MEASURE 'Sales'[Total Sales] =
+      		SUM(Sales[Amount])
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		"Total Sales", [Total Sales],
+      		"Margin %", [Margin %]
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Date'[Year]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "[Total Sales]", dataType: decimal }
+      - { name: "[Margin %]", dataType: double }
+    rows:
+      - [2023, 1234567.00, 0.312]
+      - [2024, 1321200.15, 0.318]
+  - label: "sales-by-year/head"
+    query: |-
+      DEFINE
+      	MEASURE 'Sales'[Total Sales] =
+      		SUMX(Sales, Sales[Quantity] * Sales[Unit Price])
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		"Total Sales", [Total Sales],
+      		"Margin %", [Margin %]
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Date'[Year]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "[Total Sales]", dataType: decimal }
+      - { name: "[Margin %]", dataType: double }
+    rows:
+      - [2023, 1240100.00, 0.3155]
+      - [2024, 1330000.00, 0.3229]
+  - label: "total-sales-only/base"
+    query: |-
+      DEFINE
+      	MEASURE 'Sales'[Total Sales] =
+      		SUM(Sales[Amount])
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		"Total Sales", [Total Sales]
+      	),
+      	'Date'[Year] IN { 2023, 2024 },
+      	'Store'[Region] = "West"
+      )
+      ORDER BY 'Date'[Year]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "[Total Sales]", dataType: decimal }
+    rows:
+      - [2023, 523456.25]
+      - [2024, 560330.40]
+  - label: "total-sales-only/head"
+    query: |-
+      DEFINE
+      	MEASURE 'Sales'[Total Sales] =
+      		SUMX(Sales, Sales[Quantity] * Sales[Unit Price])
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		"Total Sales", [Total Sales]
+      	),
+      	'Date'[Year] IN { 2023, 2024 },
+      	'Store'[Region] = "West"
+      )
+      ORDER BY 'Date'[Year]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "[Total Sales]", dataType: decimal }
+    rows:
+      - [2023, 525800.00]
+      - [2024, 563900.10]
+  - label: "units-by-year/base"
+    query: |-
+      DEFINE
+      	MEASURE 'Sales'[Total Quantity] =
+      		SUM(Sales[Quantity])
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		"Units Sold", [Total Quantity]
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Date'[Year]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "[Units Sold]", dataType: int64 }
+    rows:
+      - [2023, 10500]
+      - [2024, 11200]
+  - label: "units-by-year/head"
+    query: |-
+      DEFINE
+      	MEASURE 'Sales'[Units Sold] =
+      		SUM(Sales[Quantity])
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		"Units Sold", [Units Sold]
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Date'[Year]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "[Units Sold]", dataType: int64 }
+    rows:
+      - [2023, 10500]
+      - [2024, 11200]
+  - label: "customers-by-year"
+    query: |-
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		"Customer Count", [Customer Count]
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Date'[Year]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "[Customer Count]", dataType: int64 }
+    rows:
+      - [2023, 830]
+      - [2024, 870]

@@ -1,0 +1,8 @@
+schemaVersion: 1
+profiles:
+  recorded:
+    recordings: ExampleSales-v1-v2.recordings.yaml
+    database: ExampleSales
+tests:
+  files: ["*.measuretests.yaml"]
+  profile: recorded

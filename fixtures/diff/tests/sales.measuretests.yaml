@@ -1,0 +1,19 @@
+schemaVersion: 1
+model: ExampleSales.SemanticModel
+defaults:
+  filters:
+    - "'Date'[Year] IN { 2023, 2024 }"
+cases:
+  - id: sales-by-year
+    measures: ["[Total Sales]", "[Margin %]"]
+    groupBy: ["'Date'[Year]"]
+  - id: total-sales-only
+    measures: ["[Total Sales]"]
+    groupBy: ["'Date'[Year]"]
+    filters: ["'Store'[Region] = \"West\""]
+  - id: units-by-year
+    measures: ["[Units Sold]"]
+    groupBy: ["'Date'[Year]"]
+  - id: customers-by-year
+    measures: ["[Customer Count]"]
+    groupBy: ["'Date'[Year]"]

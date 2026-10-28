@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/B-Grebs/TabularTools/main/schemas/measure-tests.schema.json",
+  "title": "TabularTools measure regression tests",
+  "description": "A *.measuretests.yaml file: test cases that evaluate measures by group-by columns, run by 'tabulartools test run' or the run_measure_tests MCP tool.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "model"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The semantic model (a *.SemanticModel folder, .pbip or model.bim), relative to this file. Base and head definitions are read from it."
+    },
+    "profile": {
+      "type": "string",
+      "description": "Connection profile name from tabulartools.yaml. Never a connection string."
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tolerance": { "$ref": "#/$defs/tolerance" },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dax" },
+          "description": "DAX filters applied to every case, e.g. \"'Date'[Year] IN { 2023, 2024 }\". Pin closed periods."
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "dax": { "type": "string", "minLength": 1 },
+    "tolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Numbers match when |a - b| <= max(absolute, relative * |b|).",
+      "properties": {
+        "absolute": { "type": "number", "minimum": 0 },
+        "relative": { "type": "number", "minimum": 0 }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "measures"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+          "description": "Unique within the file."
+        },
+        "description": { "type": "string" },
+        "measures": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/dax" },
+          "description": "Measures to evaluate: \"[Total Sales]\" or \"Sales[Total Sales]\"."
+        },
+        "groupBy": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dax" },
+          "description": "Columns to slice by: \"'Date'[Year]\"."
+        },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dax" },
+          "description": "DAX filter arguments for CALCULATETABLE, added to defaults.filters."
+        },
+        "asRole": {
+          "type": ["string", "null"],
+          "description": "Evaluate under this RLS role (needs admin rights on the model)."
+        },
+        "tolerance": { "$ref": "#/$defs/tolerance" },
+        "assertions": {
+          "type": "array",
+          "description": "Default: one differential assertion.",
+          "items": { "$ref": "#/$defs/assertion" }
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["differential", "invariant", "snapshot"] },
+        "description": { "type": "string" },
+        "expr": {
+          "$ref": "#/$defs/dax",
+          "description": "Invariant: a DAX condition that must be true on every row, e.g. \"[Margin %] <= 1\"."
+        },
+        "capturedAt": { "type": "string", "description": "Snapshot: when the values were captured (ISO 8601)." },
+        "columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dax" },
+          "description": "Snapshot: the group-by columns and measures, in row order."
+        },
+        "rows": {
+          "type": "array",
+          "description": "Snapshot: expected rows, one per line.",
+          "items": {
+            "type": "array",
+            "items": { "type": ["number", "string", "boolean", "null"] }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "invariant" } } }, "then": { "required": ["expr"] } },
+        { "if": { "properties": { "type": { "const": "snapshot" } } }, "then": { "required": ["columns", "rows"] } }
+      ]
+    }
+  }
+}

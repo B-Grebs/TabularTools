@@ -1,0 +1,5 @@
+role 'East Only'
+	modelPermission: read
+
+	tablePermission Facts = Facts[Region] = "East"
+

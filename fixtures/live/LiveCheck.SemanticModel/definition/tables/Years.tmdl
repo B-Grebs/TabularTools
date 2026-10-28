@@ -1,0 +1,16 @@
+/// A second table, to check what happens when a query defines a measure whose name exists on another table.
+table Years
+	lineageTag: 00000000-0000-4000-8000-00000000b000
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: 00000000-0000-4000-8000-00000000b201
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Year]
+
+	partition Years = calculated
+		mode: import
+		source = DATATABLE ( "Year", INTEGER, { { 2023 }, { 2024 } } )
+

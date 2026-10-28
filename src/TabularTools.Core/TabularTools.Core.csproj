@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="..\..\rules\microsoft-bpa\BPARules.json" LogicalName="TabularTools.Rules.microsoft-bpa.json" Link="Rules\microsoft-bpa.json" />
+    <EmbeddedResource Include="..\..\schemas\measure-tests.schema.json" LogicalName="TabularTools.Schemas.measure-tests.json" Link="Schemas\measure-tests.schema.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="TabularTools.Core.Tests" />

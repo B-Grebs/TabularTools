@@ -1,0 +1,72 @@
+/// Four rows with known values, so live checks can assert exact results. No data source: refresh just recalculates.
+table Facts
+	lineageTag: 00000000-0000-4000-8000-00000000a000
+
+	/// 670 in total; East 220, West 450.
+	measure 'Base Amount' = SUM(Facts[Amount])
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-00000000a101
+
+	/// Depends on [Base Amount]: used to check that dependents pick up a query-scoped override.
+	measure Dependent = [Base Amount] * 2
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-00000000a102
+
+	measure Margin = DIVIDE([Base Amount] - SUM(Facts[Cost]), [Base Amount])
+		formatString: 0.0%
+		lineageTag: 00000000-0000-4000-8000-00000000a103
+
+	column Region
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-00000000a201
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Region]
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: 00000000-0000-4000-8000-00000000a202
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Year]
+
+	column Amount
+		dataType: decimal
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-00000000a203
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Amount]
+
+	column Cost
+		dataType: decimal
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-00000000a204
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Cost]
+
+	/// Used to check whether DEFINE COLUMN can override an existing calculated column (1340 in total).
+	column 'Double Amount' = Facts[Amount] * 2
+		dataType: decimal
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-00000000a205
+		summarizeBy: sum
+
+	partition Facts = calculated
+		mode: import
+		source =
+				DATATABLE (
+				    "Region", STRING,
+				    "Year", INTEGER,
+				    "Amount", CURRENCY,
+				    "Cost", CURRENCY,
+				    {
+				        { "East", 2023, 100, 60 },
+				        { "West", 2023, 200, 150 },
+				        { "East", 2024, 120, 70 },
+				        { "West", 2024, 250, 160 }
+				    }
+				)
+

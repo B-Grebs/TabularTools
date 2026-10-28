@@ -1,0 +1,80 @@
+# Recorded DAX query results, replayed by TabularTools instead of querying a live model.
+# Entries match on the query text (whitespace at line ends ignored) and role.
+schemaVersion: 1
+target:
+  endpoint: "powerbi://api.powerbi.com/v1.0/myorg/Example%20Sales%20Dev"
+  database: "ExampleSales"
+recordings:
+  - label: "sales-by-year-region"
+    query: |-
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		'Store'[Region],
+      		"Total Sales", [Total Sales],
+      		"Margin %", [Margin %]
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Date'[Year], 'Store'[Region]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "Store[Region]", dataType: string }
+      - { name: "[Total Sales]", dataType: decimal }
+      - { name: "[Margin %]", dataType: double }
+    rows:
+      - [2023, "East", 412345.50, 0.31]
+      - [2023, "North", 298765.25, 0.28]
+      - [2023, "West", 523456.25, 0.335]
+      - [2024, "East", 450120.00, 0.305]
+      - [2024, "North", 310450.75, 0.29]
+      - [2024, "West", 560330.40, 0.341]
+  - label: "sales-by-year-region/invariant-1"
+    query: |-
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Date'[Year],
+      		'Store'[Region],
+      		"__violation", IF ( NOT ( ISBLANK ( [Total Sales] ) && ISBLANK ( [Margin %] ) ) && NOT ( [Margin %] >= -1 && [Margin %] <= 1 ), 1 )
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Date'[Year], 'Store'[Region]
+    columns:
+      - { name: "Date[Year]", dataType: int64 }
+      - { name: "Store[Region]", dataType: string }
+      - { name: "[__violation]", dataType: int64 }
+    rows: []
+  - label: "fy2023-total"
+    query: |-
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		"Total Sales", [Total Sales]
+      	),
+      	'Date'[Year] IN { 2023, 2024 },
+      	'Date'[Year] = 2023
+      )
+    columns:
+      - { name: "[Total Sales]", dataType: decimal }
+    rows:
+      - [1234567.00]
+  - label: "west-region-rls"
+    role: "West Region"
+    query: |-
+      EVALUATE
+      CALCULATETABLE (
+      	SUMMARIZECOLUMNS (
+      		'Store'[Region],
+      		"Total Sales", [Total Sales]
+      	),
+      	'Date'[Year] IN { 2023, 2024 }
+      )
+      ORDER BY 'Store'[Region]
+    columns:
+      - { name: "Store[Region]", dataType: string }
+      - { name: "[Total Sales]", dataType: decimal }
+    rows:
+      - ["West", 1083786.65]

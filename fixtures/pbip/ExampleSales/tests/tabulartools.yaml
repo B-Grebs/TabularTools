@@ -1,0 +1,13 @@
+# Synthetic test setup for the ExampleSales fixture. Measure tests replay recorded results (no live model needed).
+schemaVersion: 1
+profiles:
+  recorded:
+    recordings: ExampleSales.recordings.yaml
+    database: ExampleSales
+  dev:
+    endpoint: powerbi://api.powerbi.com/v1.0/myorg/Example%20Sales%20Dev
+    database: ExampleSales
+    auth: default
+tests:
+  files: ["*.measuretests.yaml"]
+  profile: recorded

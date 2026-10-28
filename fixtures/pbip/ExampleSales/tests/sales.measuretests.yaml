@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../../../schemas/measure-tests.schema.json
+schemaVersion: 1
+model: ../ExampleSales.SemanticModel
+profile: recorded
+defaults:
+  tolerance: { absolute: 0.005, relative: 1.0e-9 }
+  filters:
+    - "'Date'[Year] IN { 2023, 2024 }"  # pin closed periods
+cases:
+  - id: sales-by-year-region
+    description: Core sales measures by year and region
+    measures: ["[Total Sales]", "[Margin %]"]
+    groupBy: ["'Date'[Year]", "'Store'[Region]"]
+    assertions:
+      - type: differential
+      - type: invariant
+        expr: "[Margin %] >= -1 && [Margin %] <= 1"
+  - id: fy2023-total
+    measures: ["[Total Sales]"]
+    filters: ["'Date'[Year] = 2023"]
+    assertions:
+      - type: snapshot
+        capturedAt: "2026-10-27T23:00:00Z"
+        columns: ["[Total Sales]"]
+        rows:
+          - [1234567.00]
+  - id: west-region-rls
+    description: What the West Region role sees
+    measures: ["[Total Sales]"]
+    groupBy: ["'Store'[Region]"]
+    asRole: West Region

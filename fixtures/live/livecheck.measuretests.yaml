@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../schemas/measure-tests.schema.json
+# Used by scripts/verify-live.ps1 against the deployed LiveCheck model.
+schemaVersion: 1
+model: LiveCheck.SemanticModel
+cases:
+  - id: amounts-by-region-year
+    measures: ["[Base Amount]", "[Dependent]", "[Margin]"]
+    groupBy: ["'Facts'[Region]", "'Facts'[Year]"]
+    assertions:
+      - type: differential
+      - type: invariant
+        expr: "[Margin] <= 1"
+  - id: total
+    measures: ["[Base Amount]"]
+    assertions:
+      - type: snapshot
+        capturedAt: "2026-10-28T00:00:00Z"
+        columns: ["[Base Amount]"]
+        rows:
+          - [670]
+  - id: east-only
+    measures: ["[Base Amount]"]
+    asRole: East Only
+    assertions:
+      - type: snapshot
+        capturedAt: "2026-10-28T00:00:00Z"
+        columns: ["[Base Amount]"]
+        rows:
+          - [220]

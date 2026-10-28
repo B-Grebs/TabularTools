@@ -91,6 +91,26 @@ public static class ConfigLoader
             td.Severity ??= [];
             foreach (var (k, v) in ld.Severity) td.Severity[k] = v;
         }
+
+        // Profiles merge by name; a local profile replaces the committed one with the same name.
+        if (local.Profiles is not null)
+        {
+            target.Profiles ??= new(StringComparer.Ordinal);
+            foreach (var (k, v) in local.Profiles) target.Profiles[k] = v;
+        }
+
+        var tt = target.Tests;
+        var lt = local.Tests;
+        tt.Files = lt.Files ?? tt.Files;
+        tt.Profile = lt.Profile ?? tt.Profile;
+        tt.Tolerance = lt.Tolerance ?? tt.Tolerance;
+        tt.ColumnOverrides = lt.ColumnOverrides ?? tt.ColumnOverrides;
+        tt.Strict = lt.Strict ?? tt.Strict;
+        tt.MaxParallel = lt.MaxParallel ?? tt.MaxParallel;
+        tt.TimeoutSeconds = lt.TimeoutSeconds ?? tt.TimeoutSeconds;
+
+        target.Live.AllowRunDax = local.Live.AllowRunDax ?? target.Live.AllowRunDax;
+        if (local.Live.AllowedHosts is not null) target.Live.AllowedHosts = [.. target.Live.AllowedHosts ?? [], .. local.Live.AllowedHosts];
     }
 
     private static void Validate(TabularToolsConfig config)
@@ -126,6 +146,20 @@ public static class ConfigLoader
             if (!Diff.ChangeSeverityParsing.TryParse(value, out _))
                 throw new ConfigException($"{where}: diff.severity.{kind}: '{value}' isn't breaking, high, medium, low or info.");
         }
+
+        foreach (var (name, profile) in config.Profiles ?? [])
+        {
+            if (profile is null) throw new ConfigException($"{where}: profiles.{name} is empty.");
+            try { Queries.ConnectionProfiles.Validate(name, profile); }
+            catch (ArgumentException ex) { throw new ConfigException($"{where}: {ex.Message}"); }
+        }
+
+        var tests = config.Tests;
+        if (tests.MaxParallel is { } parallel && (parallel < 1 || parallel > 32)) throw new ConfigException($"{where}: tests.maxParallel must be between 1 and 32.");
+        if (tests.TimeoutSeconds is { } timeout && (timeout < 1 || timeout > 3600)) throw new ConfigException($"{where}: tests.timeoutSeconds must be between 1 and 3600.");
+        if (tests.Tolerance is { } tol && (tol.Absolute < 0 || tol.Relative < 0)) throw new ConfigException($"{where}: tests.tolerance values can't be negative.");
+        foreach (var host in config.Live.AllowedHosts ?? [])
+            if (!Queries.EndpointPolicy.IsValidHostPattern(host)) throw new ConfigException($"{where}: live.allowedHosts: '{host}' isn't a host name or *.domain pattern.");
     }
 
     /// <summary>The diff settings as engine options (severity overrides parsed).</summary>
