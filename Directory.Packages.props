@@ -7,6 +7,9 @@
     <PackageVersion Include="Microsoft.AnalysisServices" Version="19.118.3" />
     <PackageVersion Include="System.Linq.Dynamic.Core" Version="1.7.4" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+    <!-- Live -->
+    <PackageVersion Include="Microsoft.AnalysisServices.AdomdClient" Version="19.118.3" />
+    <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <!-- Hosts -->
     <PackageVersion Include="ModelContextProtocol" Version="2.3.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
