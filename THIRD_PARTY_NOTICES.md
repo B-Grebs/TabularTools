@@ -12,6 +12,8 @@ TabularTools is licensed under the [MIT License](LICENSE). It uses or includes t
 | [Microsoft Best Practice Analyzer rules](rules/microsoft-bpa/SOURCE.md) (`microsoft/Analysis-Services`) | MIT, Copyright (c) 2016 Microsoft — [license](rules/microsoft-bpa/LICENSE) | **Vendored** unchanged in `rules/microsoft-bpa/` and embedded in the engine |
 | [Tabular Editor 2](https://github.com/TabularEditor/TabularEditor) object model | MIT, Copyright (c) Tabular Editor ApS | The lint compatibility view (`src/TabularTools.Core/Lint/Compat`) mirrors Tabular Editor's member names and semantics so BPA rules run unchanged. No Tabular Editor code is included. |
 | [Microsoft.Extensions.Hosting](https://www.nuget.org/packages/Microsoft.Extensions.Hosting) | MIT | NuGet dependency (MCP host) |
+| [Microsoft.AnalysisServices.AdomdClient](https://www.nuget.org/packages/Microsoft.AnalysisServices.AdomdClient) (ADOMD.NET) | Microsoft software license terms (proprietary) | NuGet dependency (live DAX queries). Same redistribution question as Microsoft.AnalysisServices (ADR-0010). |
+| [Azure.Identity](https://www.nuget.org/packages/Azure.Identity) and [Azure.Core](https://www.nuget.org/packages/Azure.Core) | MIT | NuGet dependencies (Entra ID tokens for live queries) |
 
 Later milestones add entries here when they add dependencies or vendored material.
 

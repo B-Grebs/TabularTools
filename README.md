@@ -10,7 +10,7 @@ TabularTools is an MCP server and a CLI built on the same .NET engine. It gives 
 - **Run measure regression tests** against a live model without deploying the PR version.
 - **Resolve lineage** across repos: report → semantic model → source tables and views.
 
-> **Status: M3 — semantic diff.** Models can be opened, described, linted, dependency-traced and semantically diffed between git refs from both the MCP server and the CLI, and a sample Azure DevOps pipeline posts the review as a PR comment. Measure tests and lineage come in M4–M5. The design is in the [architecture document](docs/ARCHITECTURE.md) and the [decision records](docs/adr/README.md).
+> **Status: M4 — measure tests.** Models can be opened, described, linted, dependency-traced and semantically diffed between git refs, and measure regression tests run against a live model (or offline recordings) without deploying, from both the MCP server and the CLI. A sample Azure DevOps pipeline posts the review as a PR comment. Lineage comes in M5. The design is in the [architecture document](docs/ARCHITECTURE.md) and the [decision records](docs/adr/README.md).
 
 ## Getting started
 
@@ -52,18 +52,29 @@ tabulartools diff --base origin/main --format markdown
 tabulartools review --base origin/main --format markdown --out review.md
 ```
 
+```bash
+tabulartools test run tests/sales.measuretests.yaml --base origin/main
+```
+
+```bash
+tabulartools dax --profile dev --query "EVALUATE SUMMARIZECOLUMNS('Date'[Year], \"Sales\", [Total Sales])"
+```
+
 | Command | What it does |
 |---|---|
 | `describe` | List tables, columns, measures, relationships, roles and more. `--detail summary\|objects\|full`, filters `--tables`, `--types`, `--name`, `--exclude-hidden` |
 | `lint` | Check best-practice rules. `--rules`, `--config`, `--fail-on error\|warning\|info\|none`, `--min-severity`, `--rule`, `--base <ref>` (only violations new since that ref block) |
 | `deps <object>` | What an object depends on and what depends on it. `--direction upstream\|downstream\|both`, `--depth` (0 = all) |
 | `diff` | Semantic diff between git refs (`--base`, `--head`, default `HEAD`; `WORKTREE` for uncommitted files) or two model folders. Compares with the merge base like a PR does (`--no-merge-base` to turn off). `--model`, `--fail-on breaking\|high\|medium\|low\|info\|none`, `--min-severity`, `--include-formatting`, `--marker` |
-| `review` | `diff` plus lint violations introduced since the base, as one report; `--format markdown` is the PR comment. `--fail-on`, `--lint-fail-on`, `--rules`, `--no-lint` |
+| `review` | `diff` plus lint violations introduced since the base, plus the measure tests listed in `tests.files`, as one report; `--format markdown` is the PR comment. `--fail-on`, `--lint-fail-on`, `--rules`, `--no-lint`, `--no-tests`, `--profile`, `--strict`, `--json-out` |
+| `test run [files]` | Run measure tests (default: the files in `tests.files`). `--base` (default `HEAD`), `--head` (default `WORKTREE`), `--profile`, `--mode differential\|snapshot`, `--case`, `--strict`, `--record <file>` |
+| `test gen <file>` | Add a case to a test file. `--model`, `--measures`, `--group-by`, `--filter`, `--mode differential\|snapshot`, `--profile`, `--case-id`, `--role`, `--dry-run` |
+| `dax` | Run a read-only DAX query or `$SYSTEM` DMV select through a profile. `--query` or `--file`, `--max-rows`, `--role`, `--timeout` |
 | `ado comment --file <md>` | Create or update a PR comment thread in an Azure Pipelines PR build (found again by `--marker`). Does nothing outside PR builds |
 | `rules list` | The rules `lint` would run |
 | `rules check <file>` | Check every rule in a BPA JSON file can be evaluated (useful in CI for team rule files) |
 
-Exit codes: `0` success, `1` blocking findings (lint violations or diff changes at the `--fail-on` level; a rule file with rules that can't run), `2` usage or config error, or a path that isn't a model, `3` invalid TMDL/TMSL (reported with file and line), `4` environment error (git missing, unknown ref, shallow clone, Azure DevOps call failed).
+Exit codes: `0` success, `1` blocking findings (lint violations or diff changes at the `--fail-on` level; failing or erroring measure tests, or changed ones with `--strict`; a rule file with rules that can't run), `2` usage or config error, a path that isn't a model, or a query that's rejected or fails, `3` invalid TMDL/TMSL (reported with file and line), `4` environment error (git missing, unknown ref, shallow clone, sign-in or connection to the live model failed, Azure DevOps call failed).
 
 ### Lint rules
 
@@ -114,9 +125,58 @@ diff:
 
 Git is read with the `git` CLI; nothing is checked out or fetched. In CI, check out with full history so the base branch and merge base are present.
 
+### Measure tests
+
+A pull request changes TMDL files, but the version it proposes isn't deployed anywhere. Measure tests evaluate it anyway: each test case runs as a DAX query against a deployed dev or test model (read-only), with the changed measures redefined for that one query (`DEFINE MEASURE …`). In **differential** mode (the default) every case runs twice at the same moment on the same data, once with the base definitions and once with the head definitions, and the results are compared row by row:
+
+- a change on a measure the PR edited directly is **expected** (`changed`, not blocking unless `--strict`);
+- a change on any other measure, such as one that depends on the edited one, is a **regression** (`fail`);
+- changes a query can't simulate (relationships, data types, partitions, RLS, calculated tables) are listed as **not tested**.
+
+No values are stored in Git. **Snapshot** assertions (stored values, for pinned facts such as a closed year) and **invariants** (a DAX condition that must hold on every row) are also available.
+
+```yaml
+# tests/sales.measuretests.yaml
+schemaVersion: 1
+model: ../Sales.SemanticModel
+defaults:
+  filters: ["'Date'[Year] IN { 2023, 2024 }"]   # pin closed periods
+cases:
+  - id: sales-by-year-region
+    measures: ["[Total Sales]", "[Margin %]"]
+    groupBy: ["'Date'[Year]", "'Store'[Region]"]
+    assertions:
+      - type: differential
+      - type: invariant
+        expr: "[Margin %] >= -1 && [Margin %] <= 1"
+```
+
+Create cases with `tabulartools test gen` or the `generate_measure_tests` tool. The JSON Schema is [`schemas/measure-tests.schema.json`](schemas/measure-tests.schema.json).
+
+Connections are named **profiles** in `tabulartools.yaml`: an endpoint, a database and an auth mode, never a secret. Tokens come from Azure.Identity: `azureCli` (pipelines with a workload identity federation service connection, or after `az login`), `servicePrincipal` (the `AZURE_*` variables), `interactive`, `deviceCode`, `token` (an environment variable), or `default` (environment → workload identity → Azure CLI → browser on Windows). A profile can instead replay a **recordings** file, so tests run offline in CI; `test run --record <file>` captures one from a live run.
+
+```yaml
+profiles:
+  dev:
+    endpoint: powerbi://api.powerbi.com/v1.0/myorg/Sales%20Dev
+    database: Sales
+    auth: azureCli
+  recorded:
+    recordings: tests/sales.recordings.yaml
+tests:
+  files: ["tests/**/*.measuretests.yaml"]
+  profile: dev
+live:
+  allowRunDax: true             # false turns off ad-hoc queries (dax, run_dax); tests still run
+```
+
+Queries only go to `*.powerbi.com`, `*.asazure.windows.net` and hosts listed in `live.allowedHosts`, and only DAX queries and `$SYSTEM` DMV selects are sent: TMSL and XMLA commands are rejected before connecting. Local Power BI Desktop (`endpoint: desktop`) works on Windows only.
+
+**Live access hasn't been verified against a real tenant yet.** [`scripts/verify-live.ps1`](scripts/verify-live.ps1) checks it against the synthetic [LiveCheck model](fixtures/live/README.md), including whether model measures pick up query-scoped overrides.
+
 ### Azure DevOps
 
-[`samples/azure-pipelines/pr-review.yml`](samples/azure-pipelines/pr-review.yml) runs `review` on every pull request, publishes the report as an artifact, posts it as one PR comment that is updated on each push, and fails the build on blocking findings. Setup notes are in [samples/azure-pipelines/README.md](samples/azure-pipelines/README.md).
+[`samples/azure-pipelines/pr-review.yml`](samples/azure-pipelines/pr-review.yml) runs `review` on every pull request (with measure tests when a service connection is set), publishes the report as an artifact, posts it as one PR comment that is updated on each push, and fails the build on blocking findings. Setup notes are in [samples/azure-pipelines/README.md](samples/azure-pipelines/README.md).
 
 ### MCP server
 
@@ -144,10 +204,13 @@ Generic `mcp.json` / Claude Desktop entry:
 | `get_dependencies` | What an object depends on and what depends on it, across all DAX plus relationships, sort-by and hierarchies |
 | `lint_model` | Best-practice violations with rule, object, severity and fix hint; settings from `tabulartools.yaml`. `baseRef` marks which violations are new |
 | `diff_model` | Semantic diff between git refs, against the working tree (`head: "WORKTREE"`), or between folders; optional PR-comment Markdown |
+| `run_measure_tests` | Run measure tests: base vs head (default `HEAD` vs the working tree), snapshots and invariants, with expected changes, regressions and untested structural changes |
+| `generate_measure_tests` | Add a test case to a test file; previews by default, saves with `save: true` when the server allows writes |
+| `run_dax` | Run a read-only DAX query or `$SYSTEM` DMV select through a profile; rows capped |
 
-Resources: `tabulartools://rulesets`, `tabulartools://rulesets/{id}` (`builtin`, `microsoft-bpa`) and `tabulartools://diff/change-kinds`.
+Resources: `tabulartools://rulesets`, `tabulartools://rulesets/{id}` (`builtin`, `microsoft-bpa`), `tabulartools://diff/change-kinds`, `tabulartools://schemas/measure-tests` and `tabulartools://workspace/test-files`.
 
-The server is read-only. `--root` (repeatable) sets the folder relative paths resolve against. `--allow-writes` and `--disable-live` are accepted for later milestones and change nothing yet.
+The server never writes to a model or a service. `--root` (repeatable) sets the folder relative paths resolve against and the only place files may be written. `--allow-writes` lets `generate_measure_tests` save test files (it only previews without it). `--disable-live` hides `run_dax` and limits measure tests to recordings, so nothing queries a live model.
 
 ### Build and test
 
@@ -159,7 +222,7 @@ dotnet build
 dotnet test
 ```
 
-Tests run on Linux and Windows in CI against the synthetic fixtures in `fixtures/`. Diff tests build a throwaway git repository from `fixtures/diff/ExampleSales-v1` and `-v2`. Golden Markdown files live in `fixtures/diff/expected/`; after an intended output change, regenerate them with `UPDATE_GOLDEN=1 dotnet test`.
+Tests run on Linux and Windows in CI against the synthetic fixtures in `fixtures/`. Diff tests build a throwaway git repository from `fixtures/diff/ExampleSales-v1` and `-v2`. Golden Markdown files live in `fixtures/diff/expected/`; after an intended output change, regenerate them with `UPDATE_GOLDEN=1 dotnet test`. Measure tests replay hand-written recordings (`fixtures/pbip/ExampleSales/tests/`, `fixtures/diff/tests/`); the same command rewrites their query text when the query planner changes, keeping the values. Live tests are skipped unless `TABULARTOOLS_LIVE_TESTS=1`.
 
 ## Design documents
 
@@ -177,8 +240,8 @@ Tests run on Linux and Windows in CI against the synthetic fixtures in `fixtures
 | M0 | Architecture document + ADRs | Done |
 | M1 | Skeleton: solution, MCP + CLI hosts, `open_model`/`describe_model`, Linux + Windows CI | Done — [notes](docs/milestones/M1.md) |
 | M2 | Lint engine (BPA JSON rules + built-in rules), DAX dependencies | Done — [notes](docs/milestones/M2.md) |
-| M3 | Semantic diff + PR-comment Markdown + sample ADO pipeline | **Done** — [notes](docs/milestones/M3.md) |
-| M4 | Measure regression tests + `run_dax` (live, with an offline mock) | Not started |
+| M3 | Semantic diff + PR-comment Markdown + sample ADO pipeline | Done — [notes](docs/milestones/M3.md) |
+| M4 | Measure regression tests + `run_dax` (live, with an offline mock) | **Done** (live parts unverified) — [notes](docs/milestones/M4.md) |
 | M5 | Cross-repo lineage with an explicit config | Not started |
 
 ## Principles

@@ -24,6 +24,12 @@ Measure regression tests must evaluate PR versions of measures. v1 never writes 
 - Needs a deployed model with data and XMLA read access (Premium, PPU or Fabric).
 - **To verify in M4:** that model measures referencing an overridden measure use the query definition, and how `DEFINE COLUMN` behaves on the service. If columns don't work, column changes are reported as structural.
 
+## Implementation notes (M4)
+
+- Overrides are the measures whose DAX changed (formatting-only changes excluded), renamed measures, and measures that exist on one side only. Each query defines only the overrides its measures depend on, so an unrelated change can't break it. Measures that only moved table aren't overridden.
+- `DEFINE COLUMN` overrides of calculated columns are **opt-in** (`tests.columnOverrides`) until verified; by default calculated column changes are listed as not tested.
+- Neither R3 question could be answered in the build environment (no tenant). `scripts/verify-live.ps1` answers both against the synthetic LiveCheck model; see docs/milestones/M4.md.
+
 ## Alternatives considered
 
 - **Deploy the PR head to a scratch workspace:** most faithful, but requires XMLA writes (out of scope for v1) and capacity. Possible later behind an opt-in flag.

@@ -134,13 +134,12 @@ The brief asks for one core plus two hosts. This design adds one refinement: **`
    │  Analysis: DAX lexer + dependency graph │ M lexer/parser + source extractor │ SQL refs│
    │  Engines:  Lint │ Diff │ MeasureTests (plan/compare) │ Lineage                          │
    │  Rendering: JSON (versioned schemas) │ Markdown │ (later) SARIF                         │
-   │  Ports: IGitReader │ IDaxExecutor │ IFileWriter │ IClock                                │
+   │  Ports: IGitReader │ IDaxExecutor (+ RecordedDaxExecutor) │ FileWriter │ clock          │
    └───────────────▲──────────────────────────────────────────────▲─────────────────────┘
                    │ implements IDaxExecutor                       │ implements IGitReader
    ┌───────────────┴──────────────┐                    ┌───────────┴───────────┐
    │ TabularTools.Live            │                    │ GitCliReader (Core)   │──► git CLI
    │  XmlaDaxExecutor (ADOMD.NET) │──► powerbi://…     └───────────────────────┘
-   │  RecordedDaxExecutor (mock)  │
    │  TokenProviders (Azure.Id.)  │──► Entra ID
    └──────────────────────────────┘
 ```
@@ -335,13 +334,17 @@ out: { testFile: string, yaml: string, cases: string[], write: WriteResult /* §
 > *Run measure regression tests from a test file against a live model. In differential mode it evaluates each case with the base and head definitions of changed measures (no deployment needed) and reports which outputs changed; in snapshot mode it compares against stored values. Returns pass/fail per assertion.*
 
 ```ts
-in:  { testFile: string, profile?: string, mode?: "differential"|"snapshot",
-       repo?: string, base?: string, head?: string = "WORKTREE", caseIds?: string[] }
-out: { summary: { passed, failed, changed, errored, skipped }, structuralChangesNotTested: Change[],
-       results: { caseId, assertion, status: "pass"|"fail"|"changed"|"error"|"skipped",
-                  expectedChange: boolean, diffs: { key: Record<string,unknown>, measure, base, head, delta }[],
-                  message? }[] }
+in:  { testFiles?: string[] /* default: tests.files */, profile?: string, mode?: "differential"|"snapshot",
+       base?: string = "HEAD", head?: string = "WORKTREE", caseIds?: string[], strict?: boolean, maxDiffs?: number }
+out: { schemaVersion: 1, summary: { passed, failed, changed, errored, skipped }, base, head, profiles, targets, blocking,
+       files: { file, model, summary, overrides: { base, head, directlyEdited }, structuralChangesNotTested: Change[],
+                results: { caseId, assertion, status: "pass"|"fail"|"changed"|"error"|"skipped", expectedChange,
+                           measures?: { measure, change: "unchanged"|"expectedChange"|"regression"|"added", changedRows }[],
+                           diffs: { key: Record<string,unknown>, measure, base, head, delta, expected }[], diffCount,
+                           violations?, message? }[] }[] }
 ```
+
+(As built in M4: one result per test file, so `review` and multi-file runs keep their structure.)
 
 #### `resolve_lineage`
 
@@ -384,7 +387,7 @@ A composite `review_changes` *tool* (for clients without prompt support) is defe
 - Server flags:
   - `--root <dir>` (repeatable; the default is the current directory; client-provided MCP roots are honored);
   - `--allow-writes` (off by default; §14.3);
-  - `--disable-live` (hides `run_dax` and the live parts of the test tools);
+  - `--disable-live` (hides `run_dax`; measure tests only replay recordings);
   - `--config <file>`.
 - Distribution: a NuGet tool package (`dotnet tool install -g`, or run on demand with .NET 10's `dnx`), plus self-contained single-file builds for win-x64 and linux-x64.
 
@@ -478,8 +481,8 @@ Default thresholds: `lint --fail-on error`, `test run` fails on `fail` or `error
 **`run_measure_tests`**
 
 1. Parse and validate the test file.
-2. In differential mode: use the diff engine to find the measures (and calculated columns) whose definitions differ between base and head, plus every DAX dependency they pull in. List structural changes that can't be simulated in a query.
-3. For each case, plan two queries (base overrides, head overrides). Run them; cases can run in parallel up to a limit.
+2. In differential mode: use the diff engine's matcher to find the measures whose DAX differs between base and head (formatting-only changes excluded), renamed measures, and measures on one side only; calculated columns too when `tests.columnOverrides` is on. List structural changes that can't be simulated in a query.
+3. For each case, plan two queries (base overrides, head overrides), each defining only the overrides its measures, filters and invariants depend on (transitively, through the dependency graph). When both are the same text, run it once. Distinct queries run in parallel up to `tests.maxParallel`.
 4. Compare row by row by group key, with tolerances.
 5. Classify each result: `changed` on a measure the PR edited directly counts as an *expected change*; `changed` on any other measure is a *regression* and counts as `fail`.
 6. Render.
@@ -655,7 +658,7 @@ DAX queries can **redefine measures for the duration of one query** (`DEFINE MEA
 - **Structural changes** (relationships, data types, partitions, new tables) **can't be simulated in a query**. They're reported as `structuralChangesNotTested`. The run doesn't pretend to cover them. (Testing them needs a deployed head model, which is out of scope for v1.)
 - **Expected change vs regression.** In differential mode, a value change on a measure the PR edited *directly* is an *expected change*: reported with before and after values, non-blocking by default (blocking with `--strict`). A change on any *other* measure (a dependent, or one included only as a guard) is a **regression** and fails the test.
 
-**(To verify in M4 against a live engine:** that model measures referencing an overridden measure pick up the query definition, and how `DEFINE COLUMN` behaves on the service. Both are believed to work as described; the M4 notes will record the result.)
+**(To verify against a live engine:** that model measures referencing an overridden measure pick up the query definition, and how `DEFINE COLUMN` behaves on the service. M4 couldn't reach a tenant; `scripts/verify-live.ps1` answers both against the synthetic LiveCheck model, and the M4 notes record the result. Until then, calculated column overrides are opt-in.)
 
 ### 11.3 Query shape
 
@@ -722,7 +725,7 @@ Notes:
 | Executor | Where | Use |
 |---|---|---|
 | `XmlaDaxExecutor` | `Live` | ADOMD.NET against `powerbi://` or `asazure://` with an Entra ID token. Also `localhost:<port>` for Power BI Desktop **on Windows only** (verified: Linux throws `NotSupportedException`). |
-| `RecordedDaxExecutor` | `Live` | **Offline mock for CI.** Replays results from a recordings file keyed by SHA-256 of the canonicalized query + target. Unknown queries fail loudly. Fixture recordings are hand-written for the synthetic model. `--record` on the live executor captures new recordings. |
+| `RecordedDaxExecutor` | `Core` (moved from `Live` in M4, so offline runs need neither ADOMD nor Azure.Identity) | **Offline mock for CI.** Replays results from a recordings file (`*.recordings.yaml`, one target per file) keyed by SHA-256 of the canonicalized query (LF line endings, no trailing whitespace) + role. Unknown queries fail loudly, naming the case. Fixture recordings are hand-written for the synthetic model. `test run --record <file>` wraps the live executor and captures new recordings. |
 
 Power BI Desktop's port is discovered from `%LOCALAPPDATA%\Microsoft\Power BI Desktop\AnalysisServicesWorkspaces\*\Data\msmdsrv.port.txt` (Windows only). This gives a fast local loop while the PBIP is open in Desktop.
 
@@ -844,7 +847,9 @@ We **acquire tokens ourselves** and pass them to ADOMD through `AdomdConnection.
 | `servicePrincipal` | `EnvironmentCredential` (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, plus `AZURE_CLIENT_SECRET` or `AZURE_CLIENT_CERTIFICATE_PATH`) | Pipelines that use a secret or certificate from a variable group or Key Vault. |
 | `interactive` | `InteractiveBrowserCredential` (Windows: WAM broker) | Local dev on Windows. |
 | `deviceCode` | `DeviceCodeCredential` | Headless or Linux local dev. |
-| `default` | Ordered chain: environment → workload identity → Azure CLI → interactive (Windows) / device code (other OS) | Default. |
+| `token` | An access token from the environment variable named by `tokenEnv` | Pipelines that already hold a token. |
+| `none` | No token | Local engines only (`localhost:<port>`, `desktop`). |
+| `default` | Ordered chain: environment → workload identity → Azure CLI → interactive browser (Windows, and only outside CI and when prompting is possible) | Default. (M4: device code was dropped from the default chain because it would hang a pipeline; choose `deviceCode` explicitly.) |
 
 Token cache: MSAL's persistent cache (DPAPI on Windows, keyring on Linux, opt-in). **Secrets are never read from committed files.** Profiles name an auth *mode* and, at most, *names* of environment variables.
 
@@ -867,7 +872,7 @@ See [ADR-0008](adr/0008-read-only-safety-model.md).
 
 ### 14.1 Read-only by default
 
-The MCP server starts read-only: write tools are **not registered** unless `--allow-writes` is passed. The CLI writes only when a command's purpose is to produce a file (`test gen`, `--out`).
+The MCP server starts read-only: nothing it does writes a file unless `--allow-writes` is passed. (M4: `generate_measure_tests` is always registered because its preview is useful on its own; with `save: true` it refuses unless the server was started with `--allow-writes`.) The CLI writes only when a command's purpose is to produce a file (`test gen`, `test run --record`, `--out`, `--json-out`).
 
 ### 14.2 No XMLA writes in v1
 
@@ -931,7 +936,10 @@ profiles:
   dev:
     endpoint: powerbi://api.powerbi.com/v1.0/myorg/Example%20Sales%20Dev
     database: Sales
-    auth: default            # default | azureCli | servicePrincipal | interactive | deviceCode
+    auth: default            # default | azureCli | servicePrincipal | interactive | deviceCode | token | none
+    # tokenEnv: PBI_TOKEN    # with auth: token, the environment variable holding the token
+  recorded:
+    recordings: tests/sales.recordings.yaml   # replay recorded results instead of connecting (offline CI)
 lint:
   rulesets: [builtin, microsoft-bpa, ./rules/team-rules.json]
   failOn: error
@@ -944,6 +952,14 @@ diff:
 tests:
   files: ["tests/**/*.measuretests.yaml"]
   profile: dev
+  tolerance: { absolute: 0.005, relative: 1.0e-9 }
+  columnOverrides: false     # DEFINE COLUMN for calculated column changes (unverified on the service)
+  strict: false              # expected changes block too
+  maxParallel: 4
+  timeoutSeconds: 120
+live:
+  allowRunDax: true          # false: no ad-hoc queries; measure tests still run
+  allowedHosts: []           # extra XMLA hosts, e.g. "*.powerbigov.us"
 lineage:
   config: tabulartools.lineage.yaml
 ```
@@ -1026,8 +1042,8 @@ steps:
 |---|---|---|---|
 | R1 | **BPA dialect compatibility.** TE's Dynamic LINQ dialect and wrapper object model are larger than what we emulate, so some rules won't evaluate. | High / Medium | `TeCompatView` + dialect adapter; harness over all 71 Microsoft rules; unsupported rules listed in `skippedRules`, never silent; coverage table published in M2 notes. |
 | R2 | **TOM lags new TMDL features.** Desktop ships monthly; a newer PBIP may use keywords our TOM version doesn't know. | Medium / High | Keep `Microsoft.AnalysisServices` current (Dependabot); clear `TmdlFormatException` diagnostics with file and line; refresh fixtures regularly. |
-| R3 | **Query-scoped override semantics** (dependents pick up overrides; `DEFINE COLUMN` on the service) unverified. | Medium / High (M4 depends on it) | Verify early in M4 on a live engine; if columns don't work, limit differential mode to measures and report column changes as structural. |
-| R4 | **Live XMLA unverified** (no tenant; `api.powerbi.com` blocked in the build environment). | Medium / Medium | Interfaces plus `RecordedDaxExecutor`; manual verification script for the owner; marked unverified in milestone notes. |
+| R3 | **Query-scoped override semantics** (dependents pick up overrides; `DEFINE COLUMN` on the service) unverified. | Medium / High (M4 depends on it) | Verify on a live engine (no tenant in M4: `scripts/verify-live.ps1` checks both). Column overrides are opt-in (`tests.columnOverrides`) until then; by default column changes are reported as structural. |
+| R4 | **Live XMLA unverified** (no tenant; `api.powerbi.com` blocked in the build environment). | Medium / Medium | Interfaces plus `RecordedDaxExecutor`; manual verification script for the owner (`scripts/verify-live.ps1`, M4); marked unverified in milestone notes. |
 | R5 | **Data drift** breaks snapshot tests. | High (for snapshot mode) / Low | Differential mode is the default; pinned filters; tolerances. |
 | R6 | **Sensitive data** in test files or LLM context. | Medium / High | Differential default; row caps; `--disable-live`; docs. |
 | R7 | **M parsing coverage**: custom functions, dynamic sources, unusual connectors. | High / Medium | Tolerant parser; data-driven connector catalog; `unresolved` with evidence instead of guesses. |
