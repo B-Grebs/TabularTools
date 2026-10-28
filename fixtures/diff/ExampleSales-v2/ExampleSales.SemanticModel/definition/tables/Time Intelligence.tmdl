@@ -1,0 +1,29 @@
+table 'Time Intelligence'
+	lineageTag: 00000000-0000-4000-8000-000000006000
+
+	calculationGroup
+		precedence: 1
+
+		calculationItem Current = SELECTEDMEASURE()
+
+		calculationItem YTD = CALCULATE(SELECTEDMEASURE(), DATESYTD('Date'[Date]))
+
+		calculationItem PY = CALCULATE(SELECTEDMEASURE(), SAMEPERIODLASTYEAR('Date'[Date]))
+
+	column 'Time Calculation'
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000006201
+		summarizeBy: none
+		sourceColumn: Name
+		sortByColumn: Ordinal
+
+	column Ordinal
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000006202
+		summarizeBy: sum
+		sourceColumn: Ordinal
+
+	partition 'Time Intelligence' = calculationGroup
+		mode: import
+

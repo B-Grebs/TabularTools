@@ -1,0 +1,33 @@
+table Store
+	lineageTag: 00000000-0000-4000-8000-000000005000
+
+	column StoreKey
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 00000000-0000-4000-8000-000000005201
+		summarizeBy: none
+		sourceColumn: StoreKey
+
+	column 'Store Name'
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000005202
+		summarizeBy: none
+		sourceColumn: StoreName
+
+	column Region
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000005203
+		summarizeBy: none
+		sourceColumn: Region
+
+	/// Anti-pattern: hard-coded server and database instead of the parameters.
+	partition Store = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database("sql.example.invalid", "SalesDW"),
+				    dbo_DimStore = Source{[Schema="dbo",Item="DimStore"]}[Data]
+				in
+				    dbo_DimStore
+

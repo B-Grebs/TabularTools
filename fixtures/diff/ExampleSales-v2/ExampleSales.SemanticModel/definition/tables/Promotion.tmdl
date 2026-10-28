@@ -1,0 +1,30 @@
+/// Promotions applied to orders (new in v2).
+table Promotion
+	lineageTag: 00000000-0000-4000-8000-000000007000
+
+	measure 'Promotion Count' = COUNTROWS(Promotion)
+		lineageTag: 00000000-0000-4000-8000-000000007101
+
+	column PromotionKey
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 00000000-0000-4000-8000-000000007201
+		summarizeBy: none
+		sourceColumn: PromotionKey
+
+	column 'Promotion Name'
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000007202
+		summarizeBy: none
+		sourceColumn: PromotionName
+
+	partition Promotion = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(ServerName, DatabaseName),
+				    dbo_DimPromotion = Source{[Schema="dbo",Item="DimPromotion"]}[Data]
+				in
+				    dbo_DimPromotion
+

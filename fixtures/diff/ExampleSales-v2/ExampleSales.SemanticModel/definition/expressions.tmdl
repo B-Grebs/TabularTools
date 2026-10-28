@@ -1,0 +1,10 @@
+expression ServerName = "sql.example.invalid" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 00000000-0000-4000-8000-000000000101
+
+	annotation PBI_ResultType = Text
+
+expression DatabaseName = "SalesDW" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 00000000-0000-4000-8000-000000000102
+
+	annotation PBI_ResultType = Text
+

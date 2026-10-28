@@ -80,6 +80,17 @@ public static class ConfigLoader
             foreach (var (k, v) in l.Severity) t.Severity[k] = v;
         }
         if (l.Suppress is not null) t.Suppress = [.. t.Suppress ?? [], .. l.Suppress];
+
+        var td = target.Diff;
+        var ld = local.Diff;
+        td.FailOn = ld.FailOn ?? td.FailOn;
+        td.RenameThreshold = ld.RenameThreshold ?? td.RenameThreshold;
+        td.IncludeFormattingOnly = ld.IncludeFormattingOnly ?? td.IncludeFormattingOnly;
+        if (ld.Severity is not null)
+        {
+            td.Severity ??= [];
+            foreach (var (k, v) in ld.Severity) td.Severity[k] = v;
+        }
     }
 
     private static void Validate(TabularToolsConfig config)
@@ -100,5 +111,24 @@ public static class ConfigLoader
             if (string.IsNullOrWhiteSpace(s.Rule)) throw new ConfigException($"{where}: every lint.suppress entry needs a rule.");
             if (string.IsNullOrWhiteSpace(s.Reason)) throw new ConfigException($"{where}: lint.suppress for '{s.Rule}' needs a reason.");
         }
+
+        var diff = config.Diff;
+        if (diff.FailOn is not null)
+        {
+            try { Diff.ChangeSeverityParsing.ParseFailOn(diff.FailOn); }
+            catch (ArgumentException ex) { throw new ConfigException($"{where}: diff.failOn: {ex.Message}"); }
+        }
+        if (diff.RenameThreshold is { } threshold && (threshold <= 0 || threshold > 1))
+            throw new ConfigException($"{where}: diff.renameThreshold must be greater than 0 and at most 1.");
+        foreach (var (kind, value) in diff.Severity ?? [])
+        {
+            if (!Diff.SeverityPolicy.IsKnown(kind)) throw new ConfigException($"{where}: diff.severity.{kind}: unknown change kind. See docs/diff-severities.md.");
+            if (!Diff.ChangeSeverityParsing.TryParse(value, out _))
+                throw new ConfigException($"{where}: diff.severity.{kind}: '{value}' isn't breaking, high, medium, low or info.");
+        }
     }
+
+    /// <summary>The diff settings as engine options (severity overrides parsed).</summary>
+    public static IReadOnlyDictionary<string, Diff.ChangeSeverity>? DiffSeverityOverrides(TabularToolsConfig? config) =>
+        config?.Diff.Severity?.ToDictionary(kv => kv.Key, kv => { Diff.ChangeSeverityParsing.TryParse(kv.Value, out var s); return s; }, StringComparer.Ordinal);
 }

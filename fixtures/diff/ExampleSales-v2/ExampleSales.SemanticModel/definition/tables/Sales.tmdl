@@ -1,0 +1,141 @@
+/// Sales transactions, one row per order line.
+table Sales
+	lineageTag: 00000000-0000-4000-8000-000000001000
+
+	/// Sum of the line amount.
+	measure 'Total Sales' = SUMX(Sales, Sales[Quantity] * Sales[Unit Price])
+		formatString: #,0.00
+		displayFolder: Sales
+		lineageTag: 00000000-0000-4000-8000-000000001101
+
+	measure 'Units Sold' = SUM(Sales[Quantity])
+		formatString: #,0
+		displayFolder: Sales
+		lineageTag: 00000000-0000-4000-8000-000000001102
+
+	measure 'Total Cost' = SUMX(Sales, Sales[Quantity] * Sales[Unit Cost])
+		formatString: #,0.00
+		displayFolder: Sales
+		lineageTag: 00000000-0000-4000-8000-000000001103
+
+	/// Anti-pattern: uses "/" instead of DIVIDE and has no format string.
+	measure Margin = ([Total Sales] - [Total Cost]) / [Total Sales]
+		displayFolder: Profitability
+		lineageTag: 00000000-0000-4000-8000-000000001104
+
+	/// Anti-pattern: IFERROR.
+	measure 'Margin %' = IFERROR(DIVIDE([Total Sales] - [Total Cost], [Total Sales]), 0)
+		formatString: 0.0%
+		displayFolder: Profitability
+		lineageTag: 00000000-0000-4000-8000-000000001105
+
+	measure 'Sales YTD' = TOTALYTD([Total Sales], 'Date'[Date])
+		formatString: #,0.00
+		displayFolder: Time
+		lineageTag: 00000000-0000-4000-8000-000000001107
+
+	measure 'Sales PY' = CALCULATE([Total Sales], SAMEPERIODLASTYEAR('Date'[Date]))
+		formatString: #,0.00
+		displayFolder: Time Intelligence
+		lineageTag: 00000000-0000-4000-8000-000000001108
+
+	measure 'Sales YoY %' =
+			// Year-over-year growth
+			DIVIDE (
+			    [Total Sales] - [Sales PY],
+			    [Sales PY]
+			)
+		formatString: 0.0%
+		displayFolder: Time
+		lineageTag: 00000000-0000-4000-8000-000000001109
+
+	column SalesOrderNumber
+		dataType: string
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001201
+		summarizeBy: none
+		sourceColumn: SalesOrderNumber
+
+	column DateKey
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001202
+		summarizeBy: none
+		sourceColumn: DateKey
+
+	column ProductKey
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001203
+		summarizeBy: none
+		sourceColumn: ProductKey
+
+	/// Anti-pattern: visible foreign key that sums by default.
+	column CustomerKey
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001204
+		summarizeBy: sum
+		sourceColumn: CustomerKey
+
+	column StoreKey
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001205
+		summarizeBy: none
+		sourceColumn: StoreKey
+
+	column Quantity
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001206
+		summarizeBy: none
+		sourceColumn: Quantity
+
+	column 'Unit Price'
+		dataType: decimal
+		isHidden
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-000000001207
+		summarizeBy: none
+		sourceColumn: UnitPrice
+
+	column 'Unit Cost'
+		dataType: decimal
+		isHidden
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-000000001208
+		summarizeBy: none
+		sourceColumn: UnitCost
+
+	/// Anti-pattern: floating-point data type for money.
+	column Amount
+		dataType: double
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001209
+		summarizeBy: sum
+		sourceColumn: Amount
+
+	/// Anti-pattern: hidden and unused.
+	column LoadBatchId
+		dataType: int64
+		isHidden
+		lineageTag: 00000000-0000-4000-8000-000000001210
+		summarizeBy: none
+		sourceColumn: LoadBatchId
+
+	/// Anti-pattern: calculated column using RELATED.
+	column 'Product Category' = RELATED(Product[Category])
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000001211
+		summarizeBy: none
+
+	partition Sales = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(ServerName, DatabaseName),
+				    dbo_FactSales = Source{[Schema="dbo",Item="FactSales"]}[Data]
+				in
+				    dbo_FactSales
+

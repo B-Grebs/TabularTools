@@ -4,14 +4,14 @@ namespace TabularTools.Core.Config;
 
 /// <summary>
 /// <c>tabulartools.yaml</c>: committed, team-wide settings. Never holds secrets.
-/// Sections for later milestones (profiles, diff, tests, lineage) are accepted and ignored for now.
+/// Sections for later milestones (profiles, tests, lineage) are accepted and ignored for now.
 /// </summary>
 public sealed class TabularToolsConfig
 {
     public int SchemaVersion { get; set; } = 1;
     public LintSettings Lint { get; set; } = new();
     public object? Profiles { get; set; }
-    public object? Diff { get; set; }
+    public DiffSettings Diff { get; set; } = new();
     public object? Tests { get; set; }
     public object? Lineage { get; set; }
 
@@ -40,6 +40,21 @@ public sealed class LintSettings
 
     /// <summary>Also run rules embedded in the model's BestPracticeAnalyzer annotation (Tabular Editor).</summary>
     public bool? UseModelRules { get; set; }
+}
+
+public sealed class DiffSettings
+{
+    /// <summary>breaking | high | medium | low | info | none. Default: none (diff is informational).</summary>
+    public string? FailOn { get; set; }
+
+    /// <summary>Minimum similarity (0–1) for a heuristic rename. Default: 0.8.</summary>
+    public double? RenameThreshold { get; set; }
+
+    /// <summary>Also report expression changes that only touch whitespace or comments. Default: false.</summary>
+    public bool? IncludeFormattingOnly { get; set; }
+
+    /// <summary>Per-change-kind severity overrides, e.g. <c>column.summarizeByChanged: low</c>.</summary>
+    public Dictionary<string, string>? Severity { get; set; }
 }
 
 /// <summary>Hide a rule's violations on matching objects. A reason is required.</summary>

@@ -1,0 +1,43 @@
+table Product
+	lineageTag: 00000000-0000-4000-8000-000000003000
+
+	measure 'Product Count' = COUNTROWS(Product)
+		formatString: #,0
+		lineageTag: 00000000-0000-4000-8000-000000003101
+
+	column ProductKey
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 00000000-0000-4000-8000-000000003201
+		summarizeBy: none
+		sourceColumn: ProductKey
+
+	column 'Product Name'
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000003202
+		summarizeBy: none
+		sourceColumn: ProductName
+
+	column Category
+		dataType: string
+		lineageTag: 00000000-0000-4000-8000-000000003203
+		summarizeBy: none
+		sourceColumn: Category
+
+	column 'List Price'
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 00000000-0000-4000-8000-000000003204
+		summarizeBy: none
+		sourceColumn: ListPrice
+
+	partition Product = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(ServerName, DatabaseName),
+				    dbo_DimProduct = Source{[Schema="dbo",Item="DimProduct"]}[Data]
+				in
+				    dbo_DimProduct
+
