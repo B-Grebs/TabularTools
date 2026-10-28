@@ -48,6 +48,9 @@ public interface IGitReader
 /// <summary><see cref="IGitReader"/> over the git command-line tool (ADR-0003).</summary>
 public sealed class GitCliReader : IGitReader
 {
+    /// <summary>Longest a single git command may run before it is killed and reported.</summary>
+    public static TimeSpan CommandTimeout { get; set; } = TimeSpan.FromMinutes(2);
+
     private readonly string _gitDir;
 
     private GitCliReader(string root)
@@ -120,28 +123,38 @@ public sealed class GitCliReader : IGitReader
         var blobs = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         if (ids.Count == 0) return blobs;
 
-        using var process = Start(_gitDir, ["cat-file", "--batch"], redirectInput: true);
+        using var process = Start(_gitDir, ["cat-file", "--batch"]);
         var errorTask = process.StandardError.ReadToEndAsync();
         var writer = Task.Run(() =>
         {
-            foreach (var id in ids) process.StandardInput.Write(id + "\n");
+            var input = process.StandardInput.BaseStream;
+            foreach (var id in ids) input.Write(Encoding.ASCII.GetBytes(id + "\n"));
+            input.Flush();
             process.StandardInput.Close();
         });
 
-        var stdout = process.StandardOutput.BaseStream;
-        foreach (var _ in ids)
+        var reader = Task.Run(() =>
         {
-            var header = ReadLine(stdout) ?? throw new GitException("git cat-file ended early.");
-            var parts = header.Split(' ');
-            if (parts.Length < 3 || parts[1] == "missing") throw new GitException($"git object not found: {parts[0]}");
-            var size = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
-            var buffer = new byte[size];
-            stdout.ReadExactly(buffer);
-            stdout.ReadByte(); // trailing newline
-            blobs[parts[0]] = buffer;
+            var stdout = process.StandardOutput.BaseStream;
+            foreach (var _ in ids)
+            {
+                var header = ReadLine(stdout) ?? throw new GitException("git cat-file ended early.");
+                var parts = header.TrimEnd('\r').Split(' ');
+                if (parts.Length < 3 || parts[1] == "missing") throw new GitException($"git object not found: {parts[0]}");
+                var size = int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture);
+                var buffer = new byte[size];
+                stdout.ReadExactly(buffer);
+                stdout.ReadByte(); // trailing newline
+                blobs[parts[0]] = buffer;
+            }
+        });
+
+        if (!Task.WaitAll([writer, reader], CommandTimeout))
+        {
+            Kill(process);
+            throw new GitException($"git cat-file did not finish within {CommandTimeout.TotalSeconds:0} s ({ids.Count} objects).");
         }
-        writer.Wait();
-        process.WaitForExit();
+        process.WaitForExit(CommandTimeout);
         _ = errorTask.Result;
         return blobs;
     }
@@ -185,21 +198,32 @@ public sealed class GitCliReader : IGitReader
 
     private static RunResult Run(string workingDirectory, IReadOnlyList<string> args)
     {
-        using var process = Start(workingDirectory, args, redirectInput: false);
+        using var process = Start(workingDirectory, args);
+        process.StandardInput.Close(); // git must never wait for input
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
-        process.WaitForExit();
+        if (!process.WaitForExit(CommandTimeout))
+        {
+            Kill(process);
+            throw new GitException($"git {string.Join(' ', args)} did not finish within {CommandTimeout.TotalSeconds:0} s.");
+        }
+        process.WaitForExit(); // flush the async readers
         return new RunResult(process.ExitCode, output.Result, error.Result);
     }
 
-    private static Process Start(string workingDirectory, IReadOnlyList<string> args, bool redirectInput)
+    private static void Kill(Process process)
+    {
+        try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } catch (System.ComponentModel.Win32Exception) { }
+    }
+
+    private static Process Start(string workingDirectory, IReadOnlyList<string> args)
     {
         var info = new ProcessStartInfo("git")
         {
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = redirectInput,
+            RedirectStandardInput = true,
             UseShellExecute = false,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,

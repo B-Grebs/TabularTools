@@ -57,7 +57,7 @@ internal sealed class GitFixture : IDisposable
 
     public string Git(IReadOnlyDictionary<string, string>? env, params string[] args)
     {
-        var info = new ProcessStartInfo("git") { WorkingDirectory = Path, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+        var info = new ProcessStartInfo("git") { WorkingDirectory = Path, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true, UseShellExecute = false };
         foreach (var a in new[] { "-c", "user.name=Example", "-c", "user.email=example@example.invalid", "-c", "core.autocrlf=false", "-c", "commit.gpgsign=false" }) info.ArgumentList.Add(a);
         foreach (var a in args) info.ArgumentList.Add(a);
         info.Environment["GIT_AUTHOR_NAME"] = "Example";
@@ -67,8 +67,14 @@ internal sealed class GitFixture : IDisposable
         info.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
         if (env is not null) foreach (var (k, v) in env) info.Environment[k] = v;
         using var process = Process.Start(info)!;
+        process.StandardInput.Close();
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(TimeSpan.FromMinutes(1)))
+        {
+            process.Kill(entireProcessTree: true);
+            throw new TimeoutException($"git {string.Join(' ', args)} did not finish within a minute.");
+        }
         process.WaitForExit();
         if (process.ExitCode != 0) throw new InvalidOperationException($"git {string.Join(' ', args)} failed: {error.Result}");
         return output.Result;

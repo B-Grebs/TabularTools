@@ -39,6 +39,7 @@ jobs:
 
       - name: Test
         run: dotnet test --configuration Release --no-build
+        timeout-minutes: 15
 
       - name: Pack tool packages
         if: matrix.os == 'ubuntu-latest'
