@@ -13,3 +13,6 @@
 *.bat text eol=crlf
 *.png binary
 *.nupkg binary
+
+# Vendored third-party files stay byte-identical to upstream.
+rules/microsoft-bpa/** -text
