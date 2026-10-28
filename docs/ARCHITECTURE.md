@@ -1,8 +1,8 @@
 # TabularTools — Architecture
 
-> **Status:** Reviewed after M0 (license: MIT; other open questions taken at the proposed defaults). M1 and M2 are implemented; see `docs/milestones/`.
+> **Status:** Reviewed after M0 (license: MIT; other open questions taken at the proposed defaults). M1, M2 and M3 are implemented; see `docs/milestones/`.
 > **Working name:** `TabularTools` (the repo name). See [§19 Open questions](#19-open-questions-for-review) on naming.
-> **Last updated:** 2026-10-27
+> **Last updated:** 2026-10-28
 
 This document describes the design of an MCP server and CLI that give AI agents and CI pipelines tools for **Power BI semantic models** stored as PBIP/TMDL in Git. The tools read models, lint them, compute semantic diffs between commits, run measure regression tests, and resolve lineage across repositories.
 
@@ -398,13 +398,13 @@ Command: `tabulartools` (name to be confirmed, §19). Every command supports `--
 tabulartools describe <model> [--detail summary|objects|full] [--tables ...]
 tabulartools deps     <model> <object> [--direction upstream|downstream|both] [--depth N]
 tabulartools lint     <model> [--rules <id|path|url>]... [--base <ref>] [--fail-on error|warning|info|none]
-tabulartools diff     [--repo .] --base <ref|dir> [--head <ref|dir|WORKTREE>] [--model <path>] [--fail-on breaking|high|...|none]
+tabulartools diff     [--repo .] --base <ref|dir> [--head <ref|dir|WORKTREE>] [--model <path>] [--fail-on breaking|high|...|none] [--no-merge-base] [--include-formatting]
 tabulartools dax      --profile <name> (--query <dax> | --file <file.dax>) [--max-rows N]
 tabulartools test gen <testfile> --model <path> --measures ... [--group-by ...] [--mode differential|snapshot] [--profile <name>]
 tabulartools test run <testfile>... [--profile <name>] [--mode ...] [--base <ref>] [--head <ref>] [--strict]
 tabulartools lineage  --from <object> [--config <file>] [--direction ...] [--format json|markdown|mermaid]
-tabulartools review   [--repo .] --base <ref> [--head <ref>] [--model <path>]   # diff + lint(new) + tests + lineage in one report
-tabulartools ado comment --file <review.md> [--marker <key>]                     # create or update a PR thread
+tabulartools review   [--repo .] --base <ref> [--head <ref>] [--model <path>] [--lint-fail-on ...]   # diff + lint(new) (+ tests, lineage later) in one report
+tabulartools ado comment --file <review.md> [--marker <key>] [--status active|closed]   # create or update a PR thread
 tabulartools rules list|show <id>|check <file>                                   # inspect rulesets; validate a rule file
 ```
 
@@ -561,7 +561,9 @@ The diff engine compares **object graphs**, never text lines. Text diffs appear 
 
 ### 10.1 Materialize
 
-For each side: resolve the ref to a commit, list the model's blobs (`git ls-tree -r -z <commit> -- <modelPath>`), read them in one `git cat-file --batch` process, and deserialize in memory (§5.1). `WORKTREE` reads files from disk. Folder sides load directly.
+For each side: resolve the ref to a commit, list the model's blobs (`git ls-tree -r -z <commit> -- <modelPath>`), read them in one `git cat-file --batch` process, and deserialize (§5.1). `WORKTREE` reads files from disk. Folder sides load directly.
+
+**As built (M3):** the blobs are written to a private temporary folder, loaded with the same loader as files on disk, and the folder is deleted straight away. This reuses PBIP/TMDL/TMSL resolution unchanged; the repository and working tree are never touched. Fully in-memory loading through `MetadataSerializationContext` remains possible if temp files become a problem.
 
 ### 10.2 Build snapshots
 
@@ -589,12 +591,12 @@ A **property catalog** lists, per object type, the semantic properties to compar
 | Severity | Meaning | Examples (default classification) |
 |---|---|---|
 | 🔴 `breaking` | Likely to break consumers or change security | Table, column, measure, hierarchy, calculation item or UDF **removed or renamed** (thin reports and other models bind by name); measure **moved** to another table (report field references include the table); **RLS** role filter added, changed or removed; role removed; `modelPermission` changed; OLS permission changed; data type changed on a relationship key column. |
-| 🟠 `high` | Changes results | Measure, calculated column or table, or calculation item expression changed; relationship **cross-filter direction → both**; **cardinality** changed; `isActive` changed; security filtering behavior changed; relationship removed; column **data type** changed; partition source or mode changed; shared expression or M parameter value changed; calculation group precedence or item ordinal changed. |
+| 🟠 `high` | Changes results | Role added; measure, calculated column or table, or calculation item expression changed; relationship **cross-filter direction → both**; **cardinality** changed; `isActive` changed; security filtering behavior changed; relationship removed; column **data type** changed; partition source or mode changed; shared expression or M parameter value changed; calculation group precedence or item ordinal changed. |
 | 🟡 `medium` | Changes defaults or behavior in reports | Column **summarize-by** changed; sort-by column changed; `isKey` changed; relationship added; format string *expression* changed; `discourageImplicitMeasures` changed; compatibility level changed; table or column hidden. |
 | ⚪ `low` | Cosmetic but visible | Format string, display folder, description, data category, translations, perspectives; objects unhidden. |
 | ▫️ `info` | No semantic effect | Formatting-only expression changes; ignored-annotation changes; objects added (listed so reviewers see them). |
 
-The policy is a table in code, documented in `docs/diff-severities.md` (M3), and every change kind has a fixture test.
+The policy is a table in code (`SeverityPolicy`), documented in [`docs/diff-severities.md`](diff-severities.md) with every kind, and a test keeps the two in sync. Fixture tests cover every change in the v1 → v2 fixture plus targeted single edits for most other kinds (M3 notes list the gaps).
 
 ### 10.6 Change record
 

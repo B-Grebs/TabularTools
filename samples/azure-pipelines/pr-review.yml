@@ -1,0 +1,81 @@
+# Review Power BI semantic model changes on every pull request (Azure Repos).
+#
+# What it does: semantic diff of every *.SemanticModel folder the PR changes, plus lint violations the PR
+# introduces, posted as one PR comment that is updated on every push. The run fails when the review is blocking
+# (new lint errors by default; diff changes too if tabulartools.yaml sets diff.failOn).
+#
+# Setup (once per repository):
+#   1. Create a pipeline from this file.
+#   2. Branch policy on the target branch (Repos > Branches > ... > Branch policies > Build validation): add the pipeline.
+#      Azure Repos starts PR builds from the policy; the 'pr:' key below is ignored there.
+#   3. Repos > Settings > Security > "<Project> Build Service (<org>)": allow "Contribute to pull requests",
+#      so the pipeline can post the comment.
+#   4. Until TabularTools.Cli is published to nuget.org, push the package to an Azure Artifacts feed and set
+#      TABULARTOOLS_FEED to the feed's NuGet v3 URL (…/_packaging/<feed>/nuget/v3/index.json).
+
+trigger: none
+pr:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  TABULARTOOLS_VERSION: 0.1.0
+  TABULARTOOLS_FEED: ''
+  REPORT_DIR: $(Build.ArtifactStagingDirectory)/tabulartools
+
+steps:
+  - checkout: self
+    fetchDepth: 0 # the diff needs the target branch and the merge base, not just the PR commit
+
+  - task: UseDotNet@2
+    displayName: Use .NET 10 SDK
+    inputs:
+      packageType: sdk
+      version: 10.x
+
+  - task: NuGetAuthenticate@1
+    displayName: Authenticate to Azure Artifacts
+    condition: ne(variables['TABULARTOOLS_FEED'], '')
+
+  - pwsh: |
+      $toolPath = Join-Path '$(Agent.TempDirectory)' 'tabulartools'
+      $install = @('tool', 'install', 'TabularTools.Cli', '--version', '$(TABULARTOOLS_VERSION)', '--tool-path', $toolPath)
+      if ('$(TABULARTOOLS_FEED)') { $install += @('--add-source', '$(TABULARTOOLS_FEED)') }
+      dotnet @install
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      Write-Host "##vso[task.prependpath]$toolPath"
+    displayName: Install TabularTools CLI
+
+  - pwsh: |
+      New-Item -ItemType Directory -Force -Path '$(REPORT_DIR)' | Out-Null
+      $target = '$(System.PullRequest.TargetBranch)' -replace '^refs/heads/', ''
+      # HEAD is the PR's merge commit; the diff compares it with merge-base(origin/<target>, HEAD).
+      tabulartools review --base "origin/$target" --head HEAD --format markdown --out '$(REPORT_DIR)/review.md'
+      $code = $LASTEXITCODE
+      tabulartools review --base "origin/$target" --head HEAD --format json --out '$(REPORT_DIR)/review.json' | Out-Null
+      # 0 = nothing blocking, 1 = blocking findings (fail the run after commenting), 2-4 = usage, model or git errors.
+      if ($code -gt 1) { exit $code }
+      Write-Host "##vso[task.setvariable variable=REVIEW_EXIT]$code"
+    displayName: Review semantic model changes
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish review report
+    condition: succeededOrFailed()
+    inputs:
+      targetPath: $(REPORT_DIR)
+      artifact: tabulartools-review
+
+  - pwsh: tabulartools ado comment --file '$(REPORT_DIR)/review.md' --marker review
+    displayName: Post PR comment
+    condition: and(succeededOrFailed(), eq(variables['Build.Reason'], 'PullRequest'))
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  - pwsh: |
+      Write-Host "##vso[task.logissue type=error]The semantic model review found blocking issues. See the PR comment or the tabulartools-review artifact."
+      exit 1
+    displayName: Fail on blocking findings
+    condition: and(succeeded(), eq(variables['REVIEW_EXIT'], '1'))
