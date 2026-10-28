@@ -17,4 +17,11 @@ public static class ObjectKeys
     public static string Role(string role) => $"role:{role}";
     public static string Expression(string name) => $"expression:{name}";
     public static string Function(string name) => $"function:{name}";
+    public static string TablePermission(string role, string table) => $"role:{role}/tablePermission:{table}";
+    public static string Level(string table, string hierarchy, string level) => $"table:{table}/hierarchy:{hierarchy}/level:{level}";
+    public static string Kpi(string table, string measure) => $"table:{table}/measure:{measure}/kpi";
+    public static string Perspective(string name) => $"perspective:{name}";
+    public static string Culture(string name) => $"culture:{name}";
+    public static string DataSource(string name) => $"dataSource:{name}";
+    public const string Model = "model";
 }

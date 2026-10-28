@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AnalysisServices.Tabular.Tmdl;
+using TabularTools.Core.Dax;
 using TabularTools.Core.Diagnostics;
 using TabularTools.Core.Snapshots;
 using TOM = Microsoft.AnalysisServices.Tabular;
@@ -13,7 +14,13 @@ public sealed record LoadedModel(
     string ContentHash,
     TOM.Database Database,
     ModelSnapshot Snapshot,
-    IReadOnlyList<Diagnostic> Diagnostics);
+    IReadOnlyList<Diagnostic> Diagnostics)
+{
+    private readonly Lazy<DependencyGraph> _dependencies = new(() => DependencyAnalyzer.Analyze(Snapshot));
+
+    /// <summary>DAX and structural dependencies, built on first use.</summary>
+    public DependencyGraph Dependencies => _dependencies.Value;
+}
 
 /// <summary>Loads models from TMDL folders and TMSL files. Never writes anything.</summary>
 public static class ModelLoader
