@@ -11,7 +11,8 @@ public static class LintRenderer
     {
         var s = r.Summary;
         var verdict = r.Blocking ? $"blocking (fail on {r.FailOn.ToString().ToLowerInvariant()})" : "not blocking";
-        return $"'{r.Model.Name}': {Count(s.Error, "error")}, {Count(s.Warning, "warning")}, {Count(s.Info, "info")} — {verdict}. " +
+        var since = s.New is { } n ? $" ({n} new since {r.BaseRef}, {s.Existing} existing)" : "";
+        return $"'{r.Model.Name}': {Count(s.Error, "error")}, {Count(s.Warning, "warning")}, {Count(s.Info, "info")}{since} — {verdict}. " +
                $"{Count(s.RulesEvaluated, "rule")} evaluated, {s.RulesSkipped} skipped, {s.Suppressed} suppressed.";
     }
 
@@ -24,7 +25,7 @@ public static class LintRenderer
             sb.AppendLine();
             var idWidth = Math.Min(50, r.Violations.Max(v => v.RuleId.Length));
             foreach (var v in r.Violations)
-                sb.AppendLine($"{Sev(v.Severity),-7} {v.RuleId.PadRight(idWidth)}  {Label(v.Object)}  {Detail(v)}");
+                sb.AppendLine($"{(v.IsNew switch { true => "NEW ", false => "    ", _ => "" })}{Sev(v.Severity),-7} {v.RuleId.PadRight(idWidth)}  {Label(v.Object)}  {Detail(v)}");
         }
         if (r.Truncated) sb.AppendLine($"... {r.Summary.Total - r.Violations.Count} more not shown.");
         AppendProblems(sb, r, markdown: false);
@@ -41,25 +42,51 @@ public static class LintRenderer
                       $"{s.RulesEvaluated} rules evaluated, {s.RulesSkipped} skipped, {s.Suppressed} suppressed");
         sb.AppendLine();
 
-        foreach (var group in r.Violations.GroupBy(v => v.Severity).OrderByDescending(g => g.Key))
+        if (s.New is { } newCount)
         {
-            var open = group.Key == Severity.Error;
-            sb.AppendLine(open ? $"#### {Icon(group.Key)} {Title(group.Key)} ({group.Count()})" : $"<details><summary>{Icon(group.Key)} {Title(group.Key)} ({group.Count()})</summary>");
+            sb.AppendLine($"**{newCount} new violation{(newCount == 1 ? "" : "s")}** since `{r.BaseRef}` · {s.Existing} existing (not blocking)");
             sb.AppendLine();
-            sb.AppendLine("| Rule | Object | Detail |");
-            sb.AppendLine("|---|---|---|");
-            foreach (var v in group)
+            AppendGroups(sb, r, r.Violations.Where(v => v.IsNew == true), openErrors: true);
+            var old = r.Violations.Where(v => v.IsNew != true).ToList();
+            if (old.Count > 0)
             {
-                var info = r.Rules.GetValueOrDefault(v.RuleId);
-                var rule = info?.HelpUrl is { } url ? $"[{Cell(info.Name)}]({url})" : Cell(info?.Name ?? v.RuleId);
-                sb.AppendLine($"| {rule}<br>`{Cell(v.RuleId)}` | `{Cell(Label(v.Object))}` | {Cell(Detail(v))} |");
+                sb.AppendLine($"<details><summary>{old.Count} existing violation{(old.Count == 1 ? "" : "s")} (not blocking)</summary>");
+                sb.AppendLine();
+                AppendTable(sb, r, old);
+                sb.AppendLine("</details>");
+                sb.AppendLine();
             }
-            sb.AppendLine();
-            if (!open) { sb.AppendLine("</details>"); sb.AppendLine(); }
         }
+        else AppendGroups(sb, r, r.Violations, openErrors: true);
+
         if (r.Truncated) sb.AppendLine($"_{r.Summary.Total - r.Violations.Count} more violations not shown._");
         AppendProblems(sb, r, markdown: true);
         return sb.ToString();
+    }
+
+    private static void AppendGroups(StringBuilder sb, LintResult r, IEnumerable<Violation> violations, bool openErrors)
+    {
+        foreach (var group in violations.GroupBy(v => v.Severity).OrderByDescending(g => g.Key))
+        {
+            var open = openErrors && group.Key == Severity.Error;
+            sb.AppendLine(open ? $"#### {Icon(group.Key)} {Title(group.Key)} ({group.Count()})" : $"<details><summary>{Icon(group.Key)} {Title(group.Key)} ({group.Count()})</summary>");
+            sb.AppendLine();
+            AppendTable(sb, r, group);
+            if (!open) { sb.AppendLine("</details>"); sb.AppendLine(); }
+        }
+    }
+
+    private static void AppendTable(StringBuilder sb, LintResult r, IEnumerable<Violation> violations)
+    {
+        sb.AppendLine("| Rule | Object | Detail |");
+        sb.AppendLine("|---|---|---|");
+        foreach (var v in violations)
+        {
+            var info = r.Rules.GetValueOrDefault(v.RuleId);
+            var rule = info?.HelpUrl is { } url ? $"[{Cell(info.Name)}]({url})" : Cell(info?.Name ?? v.RuleId);
+            sb.AppendLine($"| {rule}<br>`{Cell(v.RuleId)}` | `{Cell(Label(v.Object))}` | {Cell(Detail(v))} |");
+        }
+        sb.AppendLine();
     }
 
     public static string RulesText(IEnumerable<(Ruleset Ruleset, RuleInfo Rule)> rules)

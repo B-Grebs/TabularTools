@@ -71,7 +71,7 @@ public sealed record Violation
     public required ObjectRef Object { get; init; }
     public required string Message { get; init; }
     public string? FixExpression { get; init; }
-    /// <summary>Set in diff-aware mode (M3): true when the violation is new since the base ref.</summary>
+    /// <summary>Set in diff-aware mode: true when the violation is new since the base ref.</summary>
     public bool? IsNew { get; init; }
 }
 
@@ -81,7 +81,9 @@ public sealed record RuleError(string RuleId, int Objects, string Message);
 
 public sealed record RulesetSummary(string Id, string Source, int Rules, string? Path = null);
 
-public sealed record LintSummary(int Error, int Warning, int Info, int Total, int Suppressed, int RulesEvaluated, int RulesSkipped);
+/// <param name="New">Diff-aware mode: violations introduced since the base ref.</param>
+/// <param name="Existing">Diff-aware mode: violations that were already there (not blocking).</param>
+public sealed record LintSummary(int Error, int Warning, int Info, int Total, int Suppressed, int RulesEvaluated, int RulesSkipped, int? New = null, int? Existing = null);
 
 public sealed record LintResult
 {
@@ -95,8 +97,12 @@ public sealed record LintResult
     public required IReadOnlyList<RuleError> RuleErrors { get; init; }
     public required LintSummary Summary { get; init; }
     public required FailOn FailOn { get; init; }
-    /// <summary>True when any violation is at or above <see cref="FailOn"/>.</summary>
+    /// <summary>True when any violation is at or above <see cref="FailOn"/> (in diff-aware mode: any new violation).</summary>
     public required bool Blocking { get; init; }
+    /// <summary>Diff-aware mode: the base ref as given.</summary>
+    public string? BaseRef { get; init; }
+    /// <summary>Diff-aware mode: the commit the model was compared with (merge-base of the base ref and HEAD).</summary>
+    public string? BaseCommit { get; init; }
     public string? ConfigPath { get; init; }
     /// <summary>True when <see cref="Violations"/> was cut to a limit; <see cref="Summary"/> still counts everything.</summary>
     public bool Truncated { get; init; }
