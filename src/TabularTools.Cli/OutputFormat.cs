@@ -45,4 +45,10 @@ internal sealed class OutputOptions
 public sealed record CliContext(TextWriter Out, TextWriter Error, bool OutputIsTerminal, string WorkingDirectory)
 {
     public static CliContext Console() => new(System.Console.Out, System.Console.Error, !System.Console.IsOutputRedirected, Directory.GetCurrentDirectory());
+
+    /// <summary>Environment variables (replaceable in tests).</summary>
+    public Func<string, string?> Environment { get; init; } = System.Environment.GetEnvironmentVariable;
+
+    /// <summary>Creates the PR commenter; tests substitute a fake.</summary>
+    public Func<Ado.AdoContext, Ado.IPullRequestCommenter>? CommenterFactory { get; init; }
 }

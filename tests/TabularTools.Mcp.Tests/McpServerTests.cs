@@ -12,7 +12,7 @@ public class McpServerTests(McpServerFixture server) : IClassFixture<McpServerFi
     {
         var tools = await server.Client.ListToolsAsync(cancellationToken: Ct);
 
-        Assert.Equal(["describe_model", "get_dependencies", "lint_model", "open_model", "ping"], tools.Select(t => t.Name).Order());
+        Assert.Equal(["describe_model", "diff_model", "get_dependencies", "lint_model", "open_model", "ping"], tools.Select(t => t.Name).Order());
         Assert.All(tools, t =>
         {
             var tool = t.ProtocolTool;

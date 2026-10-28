@@ -17,25 +17,31 @@ public sealed class LintTools(ModelWorkspace workspace)
         UseStructuredContent = true, OutputSchemaType = typeof(LintResult))]
     [Description("Check a semantic model against best-practice rules — Microsoft's Best Practice Analyzer rules, built-in TT rules (broken DAX references, " +
                  "ambiguous filter paths, RLS mistakes, hard-coded sources, name collisions) and any team rule files — and return violations with rule, " +
-                 "object, severity and a fix hint. Settings come from the nearest tabulartools.yaml. Rules that can't be evaluated are listed in skippedRules.")]
+                 "object, severity and a fix hint. Settings come from the nearest tabulartools.yaml. Rules that can't be evaluated are listed in skippedRules. " +
+                 "Pass baseRef (e.g. 'main') for PR review: violations that already existed at that git ref are marked isNew=false and don't block.")]
     public CallToolResult LintModel(
         [Description(ModelTools.ModelParameterDescription)] string? model = null,
         [Description("Rulesets to run instead of the configured ones: 'builtin', 'microsoft-bpa', or paths to BPA JSON rule files.")] string[]? rulesets = null,
         [Description("Only report violations at or above this severity.")] Severity? minSeverity = null,
         [Description("Only run these rule ids.")] string[]? ruleIds = null,
         [Description("Path to a tabulartools.yaml to use instead of discovering one.")] string? config = null,
-        [Description("Maximum violations to return (most severe first). The summary always counts all of them.")] int limit = 200) => ToolResults.Run(() =>
+        [Description("Maximum violations to return (most severe first). The summary always counts all of them.")] int limit = 200,
+        [Description("Git ref to compare with (e.g. 'main'). Violations already present there are marked isNew=false; only new ones block.")] string? baseRef = null,
+        [Description("With baseRef: compare with merge-base(baseRef, HEAD), as a pull request does. Default: true.")] bool mergeBase = true) => ToolResults.Run(() =>
     {
         var opened = workspace.Open(model);
         var cfg = ConfigLoader.ForModel(opened.Model.Source, config is null ? null : Path.GetFullPath(Path.Combine(workspace.Roots[0], config)));
-        var result = LintEngine.Run(opened.Model, new LintOptions
+        var options = new LintOptions
         {
             Rulesets = rulesets,
             MinSeverity = minSeverity,
             RuleIds = ruleIds,
             Config = cfg,
             BaseDirectory = workspace.Roots[0],
-        }, opened.Handle);
+        };
+        var result = string.IsNullOrWhiteSpace(baseRef)
+            ? LintEngine.Run(opened.Model, options, opened.Handle)
+            : DiffAwareLint.Run(opened.Model, options, baseRef, workspace.Roots[0], mergeBase, opened.Handle);
 
         if (result.Violations.Count > Math.Max(1, limit))
             result = result with { Violations = result.Violations.Take(Math.Max(1, limit)).ToList(), Truncated = true };

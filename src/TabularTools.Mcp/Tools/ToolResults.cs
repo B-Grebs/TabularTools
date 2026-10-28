@@ -41,6 +41,10 @@ internal static class ToolResults
         {
             return Error(ex.Message);
         }
+        catch (TabularTools.Core.Git.GitException ex)
+        {
+            return Error("Git: " + ex.Message);
+        }
     }
 
     public static CallToolResult Error(string message) => new()

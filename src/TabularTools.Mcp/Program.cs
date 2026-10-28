@@ -44,7 +44,9 @@ builder.Services
     .WithStdioServerTransport()
     .WithTools<ModelTools>()
     .WithTools<LintTools>()
-    .WithResources<RulesetResources>();
+    .WithTools<DiffTools>()
+    .WithResources<RulesetResources>()
+    .WithResources<DiffTools>();
 
 await builder.Build().RunAsync();
 return 0;

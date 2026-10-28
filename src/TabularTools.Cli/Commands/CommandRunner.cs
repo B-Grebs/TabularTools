@@ -16,6 +16,11 @@ internal static class CommandRunner
             foreach (var d in ex.Diagnostics) context.Error.WriteLine(d.ToString());
             return ex.IsResolutionFailure ? ExitCodes.UsageError : ExitCodes.ModelError;
         }
+        catch (TabularTools.Core.Git.GitException ex)
+        {
+            context.Error.WriteLine("error: " + ex.Message);
+            return ExitCodes.EnvironmentError;
+        }
         catch (ArgumentException ex)
         {
             context.Error.WriteLine("error: " + ex.Message);

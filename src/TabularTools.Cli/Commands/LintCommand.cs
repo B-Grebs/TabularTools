@@ -19,22 +19,26 @@ internal static class LintCommand
         var failOn = new Option<FailOn?>("--fail-on") { Description = "Exit with code 1 when a violation is at or above: error, warning, info, none. Default: config, else error." };
         var minSeverity = new Option<Severity?>("--min-severity") { Description = "Only report violations at or above: error, warning, info." };
         var ruleIds = new Option<string[]>("--rule") { Description = "Only run these rule ids. Repeatable.", AllowMultipleArgumentsPerToken = true };
+        var baseRef = new Option<string?>("--base", "-b") { Description = "Git ref to compare with (e.g. origin/main): violations that already existed there are reported but don't block." };
+        var noMergeBase = new Option<bool>("--no-merge-base") { Description = "With --base: compare with the ref itself instead of merge-base(ref, HEAD)." };
         var output = new OutputOptions();
 
-        var command = new Command("lint", "Check a semantic model against best-practice rules. Exits 1 when violations reach the --fail-on level.");
+        var command = new Command("lint", "Check a semantic model against best-practice rules. Exits 1 when violations reach the --fail-on level (with --base: only new violations count).");
         command.Arguments.Add(model);
         command.Options.Add(rules);
         command.Options.Add(config);
         command.Options.Add(failOn);
         command.Options.Add(minSeverity);
         command.Options.Add(ruleIds);
+        command.Options.Add(baseRef);
+        command.Options.Add(noMergeBase);
         output.AddTo(command);
 
         command.SetAction(parse => CommandRunner.Run(context, () =>
         {
             var loaded = ModelArgument.Load(parse, model, context);
             var cfg = ConfigLoader.ForModel(loaded.Source, parse.GetValue(config)?.FullName);
-            var result = LintEngine.Run(loaded, new LintOptions
+            var options = new LintOptions
             {
                 Rulesets = parse.GetValue(rules),
                 Config = cfg,
@@ -42,7 +46,10 @@ internal static class LintCommand
                 MinSeverity = parse.GetValue(minSeverity),
                 RuleIds = parse.GetValue(ruleIds),
                 BaseDirectory = context.WorkingDirectory,
-            });
+            };
+            var result = parse.GetValue(baseRef) is { Length: > 0 } baseValue
+                ? DiffAwareLint.Run(loaded, options, baseValue, context.WorkingDirectory, mergeBase: !parse.GetValue(noMergeBase))
+                : LintEngine.Run(loaded, options);
 
             var text = output.ResolveFormat(parse, context) switch
             {
